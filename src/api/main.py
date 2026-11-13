@@ -177,6 +177,15 @@ def create_app(
                 out["label"] = "Open ocean"
         return out
 
+    @app.get("/api/places/layer/{level}")
+    def place_layer(level: str, request: Request):
+        if level not in {"country", "region", "city", "sea"}:
+            raise HTTPException(status_code=404, detail="level must be country, region, city, or sea")
+        path = REPO_ROOT / "data/places/gazetteer" / f"{level}.geojson"
+        if not path.exists():
+            raise HTTPException(status_code=503, detail=f"Place layer not available: {level}")
+        return FileResponse(path, media_type="application/geo+json")
+
     @app.get("/api/places/{place_id}")
     def place_detail(place_id: str, request: Request):
         p: PlaceStore = request.app.state.place_store

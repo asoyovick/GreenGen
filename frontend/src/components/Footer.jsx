@@ -55,9 +55,12 @@ export default function Footer({ health, variables, layerMeta }) {
       </div>
       <div className="site-footer__bottom">
         <span>
-          Global Change Explorer · API {health?.version || "—"} ·{" "}
-          {health?.mode || "unknown"} mode
+          Global Change Explorer · API {health?.version || "—"} · {health?.mode || "unknown"} mode
         </span>
+        <span>
+          Basemap: © OpenStreetMap contributors (when tile basemap loads) · Boundaries/names: Natural Earth (public domain).
+        </span>
+        <span>Boundaries and names are shown for reference and do not imply any position on disputed areas.</span>
         <span>{NOT_A_FORECAST}</span>
       </div>
     </footer>

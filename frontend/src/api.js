@@ -56,4 +56,14 @@ export const api = {
     request("/api/report", { lat, lon, window }, options),
   timeseries: (lat, lon, variable, options = {}) =>
     request("/api/timeseries", { lat, lon, variable }, options),
+  placesSearch: (q, level, limit = 10, options = {}) =>
+    request("/api/places/search", { q, level, limit }, options),
+  placesAt: (lat, lon, level = "region", options = {}) =>
+    request("/api/places/at", { lat, lon, level }, options),
+  place: (placeId, options = {}) => request(`/api/places/${encodeURIComponent(placeId)}`, {}, options),
+  placeReport: (placeId, options = {}) =>
+    request("/api/report", { place_id: placeId }, options),
+  placeTimeseries: (placeId, variable, options = {}) =>
+    request(`/api/places/${encodeURIComponent(placeId)}/timeseries`, { variable }, options),
+  placeLayerUrl: (level) => `${BASE}/api/places/layer/${encodeURIComponent(level)}`,
 };
