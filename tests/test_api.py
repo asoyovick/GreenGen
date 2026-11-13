@@ -61,6 +61,7 @@ def test_land_report_ranks_significant_variables(client):
     assert body["variables"][0]["key"] == "vegetation"  # largest standardized trend
     top = body["variables"][0]
     assert top["significant"] is True
+    assert top["class"] == 1
     assert top["rate_per_decade"] > 0
     assert top["low_confidence"] is False
     assert top["n_years"] == 23
@@ -93,6 +94,15 @@ def test_divergence_is_reported_near_boundary(client):
     assert veg["nearby"]["down"] > 0.15
     assert body["divergence_detected"] is True
     assert "opposite directions" in body["summary"]
+
+
+def test_decreasing_cell_reports_negative_class_and_rate(client):
+    r = client.get("/api/report", params={"lat": 55, "lon": 85})
+    body = r.json()
+    veg = next(v for v in body["variables"] if v["key"] == "vegetation")
+    assert veg["class"] == -1
+    assert veg["rate_per_decade"] < 0
+    assert veg["significant"] is True
 
 
 def test_no_applicable_variables_returns_empty_report(client):

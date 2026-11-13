@@ -8,7 +8,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, params = {}) {
+async function request(path, params = {}, { signal } = {}) {
   const url = new URL(`${BASE}${path}`, window.location.origin);
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== null && value !== "") {
@@ -18,8 +18,12 @@ async function request(path, params = {}) {
 
   let response;
   try {
-    response = await fetch(url, { headers: { Accept: "application/json" } });
-  } catch {
+    response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") throw error;
     throw new ApiError(
       "Cannot reach the Global Change Explorer API. Start it with `make api` (or `make demo`) and retry.",
       0,
@@ -48,8 +52,8 @@ export const api = {
   health: () => request("/api/health"),
   variables: () => request("/api/variables"),
   layers: () => request("/api/layers"),
-  report: (lat, lon, window = 5) =>
-    request("/api/report", { lat, lon, window }),
-  timeseries: (lat, lon, variable) =>
-    request("/api/timeseries", { lat, lon, variable }),
+  report: (lat, lon, window = 5, options = {}) =>
+    request("/api/report", { lat, lon, window }, options),
+  timeseries: (lat, lon, variable, options = {}) =>
+    request("/api/timeseries", { lat, lon, variable }, options),
 };
