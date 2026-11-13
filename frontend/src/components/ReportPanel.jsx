@@ -1,5 +1,4 @@
-import { useState } from "react";
-import TrendChart from "./TrendChart.jsx";
+import { lazy, Suspense, useState } from "react";
 import {
   copyText,
   exportReportJson,
@@ -15,6 +14,8 @@ import {
   verdictIcon,
   verdictText,
 } from "../lib/format.js";
+
+const TrendChart = lazy(() => import("./TrendChart.jsx"));
 
 function VerdictBadge({ row }) {
   const tone = !row.significant ? "flat" : row.class > 0 ? "up" : "down";
@@ -291,7 +292,16 @@ export default function ReportPanel({
                     </div>
                   )}
                   {timeseries && !timeseriesLoading && !timeseriesError && timeseries.applies && (
-                    <TrendChart series={timeseries} />
+                    <Suspense
+                      fallback={
+                        <div className="loading-block" role="status">
+                          <div className="spinner" aria-hidden="true" />
+                          <p>Loading the chart…</p>
+                        </div>
+                      }
+                    >
+                      <TrendChart series={timeseries} />
+                    </Suspense>
                   )}
                   {timeseries && !timeseriesLoading && !timeseriesError && timeseries.applies === false && (
                     <p className="field-help">{timeseries.summary}</p>

@@ -38,7 +38,10 @@ def main():
     except ImportError:
         sys.exit("earthaccess is not installed. Run: pip install earthaccess")
 
-    earthaccess.login()  # env vars, ~/.netrc, then interactive prompt
+    # CMR search is public. A dry run must work without Earthdata Login so the
+    # catalog can be checked on machines that have no credentials.
+    if not args.dry_run:
+        earthaccess.login()  # env vars, ~/.netrc, then interactive prompt
 
     query = {"short_name": args.short_name, "temporal": (args.start, args.end)}
     if args.version:

@@ -79,6 +79,21 @@ def anomalies_annual(da, min_months):
     return annual.where(n_valid >= min_months)
 
 
+def fdr_significant(p_value, alpha=0.05):
+    """Benjamini-Hochberg FDR over all finite p-values.
+
+    Non-finite cells (no data / too few years) stay False and are never treated
+    as tested. Returns a boolean array shaped like ``p_value``.
+    """
+    p = np.asarray(p_value, dtype=float)
+    valid = np.isfinite(p)
+    sig = np.zeros(p.shape, dtype=bool)
+    if valid.any():
+        reject, _, _, _ = multipletests(p[valid], alpha=alpha, method="fdr_bh")
+        sig[valid] = reject
+    return sig
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--cube", required=True, help="Input Zarr or NetCDF with (time, lat, lon)")
@@ -139,11 +154,7 @@ def main():
     out["std_trend"] = out["slope_per_decade"] / annual.std("year").where(lambda s: s > 0)
 
     p = out["p_value"].values
-    valid = np.isfinite(p)
-    sig = np.zeros(p.shape, dtype=bool)
-    if valid.any():
-        reject, _, _, _ = multipletests(p[valid], alpha=args.alpha, method="fdr_bh")
-        sig[valid] = reject
+    sig = fdr_significant(p, args.alpha)
     out["significant"] = (("lat", "lon"), sig)
     direction = np.sign(out["slope_per_year"])
     cls = xr.where(out["significant"] & (direction > 0), 1.0,
