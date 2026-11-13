@@ -87,6 +87,7 @@ def build_report(lat, lon, layers, window=5.0, datasets=None):
             "unit": unit,
             "rate_per_decade": _sig(slope),
             "significant": bool(pt["significant"]),
+            "class": int(pt["class"]) if np.isfinite(float(pt["class"])) else 0,
             "standardized": _sig(float(pt["std_trend"])) if np.isfinite(float(pt["std_trend"])) else 0.0,
             "n_years": int(pt["n_years"]),
             "low_confidence": bool(pt["low_confidence"]),
