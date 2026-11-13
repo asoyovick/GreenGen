@@ -4,7 +4,9 @@
 Requires: xarray, numpy, scipy, pymannkendall, statsmodels, zarr (dask optional).
 """
 import argparse
+import os
 import sys
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import xarray as xr
@@ -31,6 +33,44 @@ def make_trend_fn(min_years):
     return trend_1d
 
 
+def trend_block(payload):
+    """Worker for process-parallel per-cell trends (same logic as trend_1d)."""
+    y_block, x, min_years = payload
+    fn = make_trend_fn(min_years)
+    out = np.empty((y_block.shape[0], 3), dtype=float)
+    for i in range(y_block.shape[0]):
+        out[i] = fn(y_block[i], x)
+    return out
+
+
+def trends_parallel(annual, min_years, jobs):
+    """Run the unchanged per-cell test in worker processes.
+
+    The skill's per-cell function is pure Python and GIL-bound, so threads do not
+    help. Chunking spatial cells across processes keeps the statistical method
+    identical while making a global 0.5-degree run practical.
+    """
+    annual = annual.load().transpose("year", "lat", "lon")
+    years = annual["year"].values.astype(float)
+    values = annual.values.reshape(len(years), -1)
+    n_cells = values.shape[1]
+    cells = np.flatnonzero(np.isfinite(values).any(axis=0))
+    slope = np.full(n_cells, np.nan)
+    pval = np.full(n_cells, np.nan)
+    nyears = np.zeros(n_cells)
+    if len(cells):
+        chunks = np.array_split(cells, max(1, min(jobs * 4, len(cells))))
+        payloads = [(values[:, idx].T, years, min_years) for idx in chunks]
+        with ProcessPoolExecutor(max_workers=jobs) as pool:
+            results = list(pool.map(trend_block, payloads))
+        for idx, res in zip(chunks, results):
+            slope[idx] = res[:, 0]
+            pval[idx] = res[:, 1]
+            nyears[idx] = res[:, 2]
+    shape = (annual.sizes["lat"], annual.sizes["lon"])
+    return slope.reshape(shape), pval.reshape(shape), nyears.reshape(shape)
+
+
 def anomalies_annual(da, min_months):
     clim = da.groupby("time.month").mean("time")
     anom = da.groupby("time.month") - clim
@@ -51,7 +91,11 @@ def main():
     ap.add_argument("--lat-range", nargs=2, type=float, default=None)
     ap.add_argument("--lon-range", nargs=2, type=float, default=None)
     ap.add_argument("--chunk", type=int, default=None, help="Dask chunk size in cells (enables parallel)")
+    ap.add_argument("--jobs", type=int, default=1,
+                    help="Process workers for the per-cell loop (default 1; 0 = cpu_count)")
     args = ap.parse_args()
+    if args.jobs == 0:
+        args.jobs = os.cpu_count() or 1
 
     ds = xr.open_zarr(args.cube) if args.cube.endswith(".zarr") else xr.open_dataset(args.cube)
     da = ds[args.variable]
@@ -62,23 +106,35 @@ def main():
         da = da.sel(lon=slice(*args.lon_range))
 
     annual = anomalies_annual(da, args.min_months)
-    if args.chunk:
-        annual = annual.chunk({"lat": args.chunk, "lon": args.chunk, "year": -1})
-    else:
-        annual = annual.load()
     years = annual["year"]
 
-    res = xr.apply_ufunc(
-        make_trend_fn(args.min_years), annual, years,
-        input_core_dims=[["year"], ["year"]], output_core_dims=[["stat"]],
-        vectorize=True, dask="parallelized", output_dtypes=[float],
-        dask_gufunc_kwargs={"output_sizes": {"stat": 3}},
-    ).compute()
+    if args.jobs and args.jobs > 1:
+        annual = annual.load()
+        slope, pval, nyears = trends_parallel(annual, args.min_years, args.jobs)
+        out = xr.Dataset(
+            {
+                "slope_per_year": (("lat", "lon"), slope),
+                "p_value": (("lat", "lon"), pval),
+                "n_years": (("lat", "lon"), nyears),
+            },
+            coords={"lat": annual["lat"], "lon": annual["lon"]},
+        )
+    else:
+        if args.chunk:
+            annual = annual.chunk({"lat": args.chunk, "lon": args.chunk, "year": -1})
+        else:
+            annual = annual.load()
+        res = xr.apply_ufunc(
+            make_trend_fn(args.min_years), annual, years,
+            input_core_dims=[["year"], ["year"]], output_core_dims=[["stat"]],
+            vectorize=True, dask="parallelized", output_dtypes=[float],
+            dask_gufunc_kwargs={"output_sizes": {"stat": 3}},
+        ).compute()
+        out = xr.Dataset()
+        out["slope_per_year"] = res.isel(stat=0)
+        out["p_value"] = res.isel(stat=1)
+        out["n_years"] = res.isel(stat=2)
 
-    out = xr.Dataset()
-    out["slope_per_year"] = res.isel(stat=0)
-    out["p_value"] = res.isel(stat=1)
-    out["n_years"] = res.isel(stat=2)
     out["slope_per_decade"] = out["slope_per_year"] * 10
     out["std_trend"] = out["slope_per_decade"] / annual.std("year").where(lambda s: s > 0)
 
@@ -98,6 +154,17 @@ def main():
     out.attrs.update(variable=args.variable, units=units, alpha=args.alpha,
                      method="anomalies; annual means; Theil-Sen; Hamed-Rao Mann-Kendall; BH-FDR",
                      min_years=args.min_years, ok_years=args.ok_years)
+    for key in (
+        "synthetic", "model_based", "model_note", "surface", "display_name",
+        "source", "source_dataset", "dataset_version", "doi", "regrid_method",
+        "missing_months", "period_start", "period_end", "planted_trend_units",
+    ):
+        if key in da.attrs:
+            out.attrs[key] = da.attrs[key]
+    out.attrs["n_cells_with_trend"] = int(out["slope_per_year"].notnull().sum())
+    out.attrs["n_cells_significant"] = int(out["significant"].sum())
+    out["annual_anomaly"].attrs["units"] = units
+    out["annual_anomaly"].attrs["note"] = "Annual mean of monthly anomalies; missing years are gaps"
 
     n_cells = int(out["slope_per_year"].notnull().sum())
     print(f"Cells with a trend: {n_cells}")

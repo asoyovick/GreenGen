@@ -87,12 +87,38 @@ def open_series(paths, variable, time_regex=None):
                 d = d.isel(time=0, drop=True)
             parts.append(d[[variable]])
         ds = xr.concat(parts, dim=pd.Index(times, name="time"))
+    elif len(paths) == 1 and paths[0].endswith(".zarr"):
+        # Extension to the skill script: allow an existing Zarr cube (used by the
+        # synthetic pipeline) to pass through the same coordinate/regrid/report path.
+        ds = standardize_coords(xr.open_zarr(paths[0]))
+    elif len(paths) == 1:
+        ds = standardize_coords(xr.open_dataset(paths[0]))
     else:
         ds = xr.open_mfdataset(paths, combine="by_coords")
         ds = standardize_coords(ds)
     if "time" not in ds.dims:
         raise ValueError("No time dimension. Use --time-from-filename with a regex capturing YYYYMM.")
     return ds[variable].sortby("time")
+
+
+def parse_meta(items):
+    """Parse repeated key=value attributes; booleans and numbers are converted."""
+    out = {}
+    for item in items or []:
+        if "=" not in item:
+            raise ValueError(f"--meta needs key=value, got {item!r}")
+        key, value = item.split("=", 1)
+        low = value.strip().lower()
+        if low in {"true", "false"}:
+            parsed = low == "true"
+        else:
+            try:
+                parsed = float(value)
+            except ValueError:
+                parsed = value
+        out[key] = parsed
+    return out
+
 
 
 def main():
@@ -105,6 +131,8 @@ def main():
     ap.add_argument("--start", default=None, help="YYYY-MM")
     ap.add_argument("--end", default=None, help="YYYY-MM")
     ap.add_argument("--time-from-filename", default=None, help="Regex; group 1 must be YYYYMM")
+    ap.add_argument("--meta", action="append", default=[],
+                    help="Extra output attribute as key=value (repeatable), e.g. synthetic=true")
     args = ap.parse_args()
 
     paths = sorted(glob.glob(args.inputs))
@@ -130,10 +158,16 @@ def main():
     da.attrs["regrid_method"] = method
     da.attrs["target_resolution_deg"] = args.res
     da.attrs["processing"] = "standardized coords, unit conversion, regridded; missing months not filled"
+    da.attrs["missing_months"] = ",".join(m.strftime("%Y-%m") for m in missing)
+    da.attrs["period_start"] = pd.Timestamp(da.time.min().values).strftime("%Y-%m")
+    da.attrs["period_end"] = pd.Timestamp(da.time.max().values).strftime("%Y-%m")
+    da.attrs.update(parse_meta(args.meta))
 
     vmin, vmax = float(da.min()), float(da.max())
     print(f"Value range: {vmin:.4g} to {vmax:.4g} {da.attrs.get('units', '')}  <- check this is physical")
     da.name = args.variable
+    # Zarr 3 requires regular chunks; interpolation leaves irregular dask chunks.
+    da = da.chunk({"time": -1, "lat": min(180, da.sizes["lat"]), "lon": min(360, da.sizes["lon"])})
     da.to_dataset().to_zarr(args.out, mode="w")
     print(f"Wrote {args.out}  shape={dict(da.sizes)}  regrid={method}")
 
