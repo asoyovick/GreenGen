@@ -38,23 +38,21 @@ function VariableCard({ row, active, onSelect }) {
       <span className="variable-card__top">
         <span>
           <span className="variable-card__name">{row.variable}</span>
-          <span className="variable-card__rate">
-            {formatRate(row.rate_per_decade, row.unit)}
-          </span>
+          <span className="variable-card__rate">{formatRate(row.rate_per_decade, row.unit)}</span>
         </span>
         <VerdictBadge row={row} />
       </span>
       <span className="variable-card__flags">
         {row.model_based && <span className="badge badge--model">Model-based</span>}
         {row.low_confidence && <span className="badge badge--warn">Low confidence</span>}
-        {!row.significant && (
-          <span className="badge badge--flat">Not significant</span>
-        )}
+        {!row.significant && <span className="badge badge--flat">Not significant</span>}
+        {row.scale === "grid_cell" && <span className="badge">Grid-cell scale</span>}
       </span>
       {row.nearby && (
-        <span className="variable-card__nearby">
-          Nearby ({row.nearby.n_cells} cells): {nearbyText(row.nearby)}
-        </span>
+        <span className="variable-card__nearby">Nearby ({row.nearby.n_cells} cells): {nearbyText(row.nearby)}</span>
+      )}
+      {row.inside_place && (
+        <span className="variable-card__nearby">Inside: {Math.round((row.inside_place.up || 0) * 100)}% up, {Math.round((row.inside_place.down || 0) * 100)}% down</span>
       )}
     </button>
   );
@@ -69,36 +67,15 @@ function Provenance({ row }) {
       : "Not recorded";
   return (
     <dl className="provenance">
-      <div>
-        <dt>Dataset</dt>
-        <dd>{source}</dd>
-      </div>
-      <div>
-        <dt>Period used</dt>
-        <dd>{periodText(row.period) || "—"}</dd>
-      </div>
-      <div>
-        <dt>Years used</dt>
-        <dd>{row.n_years}</dd>
-      </div>
-      <div>
-        <dt>Surface</dt>
-        <dd>{row.surface || "unknown"}</dd>
-      </div>
-      <div>
-        <dt>Data type</dt>
-        <dd>
-          {row.model_based
-            ? "Model-based reanalysis, not a direct observation"
-            : "Observation-based"}
-        </dd>
-      </div>
-      {row.standardized !== undefined && (
-        <div>
-          <dt>Standardized trend</dt>
-          <dd>{formatNumber(row.standardized)} (unitless, variability-scaled)</dd>
-        </div>
-      )}
+      <div><dt>Dataset</dt><dd>{source}</dd></div>
+      <div><dt>Period used</dt><dd>{periodText(row.period) || "—"}</dd></div>
+      <div><dt>Years used</dt><dd>{row.n_years}</dd></div>
+      <div><dt>Surface</dt><dd>{row.surface || "unknown"}</dd></div>
+      <div><dt>Data type</dt><dd>{row.model_based ? "Model-based reanalysis, not a direct observation" : "Observation-based"}</dd></div>
+      {row.scale && <div><dt>Scale</dt><dd>{row.scale === "region_average" ? "Region average" : "Grid-cell scale"}</dd></div>}
+      {row.coverage != null && <div><dt>Coverage</dt><dd>{Math.round(row.coverage * 100)}%</dd></div>}
+      {row.n_cells != null && <div><dt>Cells</dt><dd>{row.n_cells}</dd></div>}
+      {row.standardized !== undefined && <div><dt>Standardized trend</dt><dd>{formatNumber(row.standardized)} (unitless)</dd></div>}
     </dl>
   );
 }
@@ -118,61 +95,43 @@ export default function ReportPanel({
 }) {
   const [copyStatus, setCopyStatus] = useState("");
   const rows = report?.variables || [];
-  const activeRow =
-    rows.find((row) => row.key === selectedVariable) || rows[0] || null;
+  const activeRow = rows.find((row) => row.key === selectedVariable) || rows[0] || null;
+  const place = report?.place || null;
+  const cell = report?.cell || (place?.centroid ? { lat: place.centroid[1], lon: place.centroid[0] } : selected);
 
   async function copyLink() {
-    const ok = await copyText(
-      shareUrl(
-        report?.cell?.lat ?? selected.lat,
-        report?.cell?.lon ?? selected.lon,
-        layerId,
-      ),
-    );
+    const url = new URL(window.location.href);
+    url.searchParams.set("layer", layerId || "");
+    const ok = await copyText(url.toString());
     setCopyStatus(ok ? "Shareable link copied." : "Could not copy the link.");
   }
 
-  if (!selected) {
+  if (!selected && !place) {
     return (
       <>
         <div className="report-head">
           <span className="eyebrow">Location report</span>
           <h2>Pick a place</h2>
-          <p className="report-head__meta">
-            Click the map to choose a 0.5° grid cell.
-          </p>
+          <p className="report-head__meta">Click the map, search, or choose a place level.</p>
         </div>
         <div className="report-panel__scroll">
           <div className="empty-state">
-            <h3>No location selected</h3>
-            <p>
-              Click anywhere on the map. The report ranks the variables that
-              changed at that cell and explains whether the change is
-              statistically significant.
-            </p>
-            <p className="field-help">
-              Observed change only. Non-significant means no significant change
-              was detected, not that nothing changed.
-            </p>
+            <h3>No place selected</h3>
+            <p>Click a place on the map or use search. Reports show precomputed, FDR-corrected observed change — not forecasts.</p>
           </div>
         </div>
       </>
     );
   }
 
-  const cell = report?.cell || selected;
   return (
     <>
       <div className="report-head">
-        <span className="eyebrow">Location report</span>
-        <h2>
-          {selected.label
-            ? selected.label
-            : formatCoord(cell.lat, cell.lon)}
-        </h2>
+        <span className="eyebrow">{place ? `${place.level} report` : "Location report"}</span>
+        <h2>{place ? place.name : (selected?.label || formatCoord(cell?.lat, cell?.lon))}</h2>
         <p className="report-head__meta">
-          {selected.label && `${formatCoord(cell.lat, cell.lon)} · `}
-          Nearest 0.5° grid cell
+          {place ? place.hierarchy : (cell ? `${formatCoord(cell.lat, cell.lon)} · Nearest 0.5° grid cell` : "")}
+          {report?.scale ? ` · ${report.scale === "region_average" ? "region average" : "grid-cell scale"}` : ""}
           {report?.mode ? ` · ${report.mode} mode` : ""}
         </p>
       </div>
@@ -181,7 +140,7 @@ export default function ReportPanel({
         {loading && (
           <div className="loading-block" role="status">
             <div className="spinner" aria-hidden="true" />
-            <p>Looking up precomputed trends and significance…</p>
+            <p>Loading precomputed trends and significance…</p>
           </div>
         )}
 
@@ -189,83 +148,45 @@ export default function ReportPanel({
           <div className="empty-state" role="alert">
             <h3>Report unavailable</h3>
             <p>{error}</p>
-            <button type="button" className="button button--primary" onClick={onRetry}>
-              Retry this location
-            </button>
+            <button type="button" className="button button--primary" onClick={onRetry}>Retry</button>
           </div>
         )}
 
         {report && !loading && !error && (
           <>
-            <div className="report-summary" aria-live="polite">
-              <p>{report.summary}</p>
-            </div>
+            <div className="report-summary" aria-live="polite"><p>{report.summary}</p></div>
 
             <div className="report-export" aria-label="Export this report">
               <span className="field-help">Export or share</span>
               <div className="export-row">
-                <button
-                  type="button"
-                  className="button button--small"
-                  onClick={() => exportReportMarkdown(report)}
-                >
-                  Markdown
-                </button>
-                <button
-                  type="button"
-                  className="button button--small"
-                  onClick={() => exportReportJson(report)}
-                >
-                  JSON
-                </button>
-                <button type="button" className="button button--small" onClick={copyLink}>
-                  Copy link
-                </button>
+                <button type="button" className="button button--small" onClick={() => exportReportMarkdown(report)}>Markdown</button>
+                <button type="button" className="button button--small" onClick={() => exportReportJson(report)}>JSON</button>
+                <button type="button" className="button button--small" onClick={copyLink}>Copy link</button>
               </div>
-              {copyStatus && (
-                <p className="copy-status" role="status">
-                  {copyStatus}
-                </p>
-              )}
+              {copyStatus && <p className="copy-status" role="status">{copyStatus}</p>}
             </div>
 
             {report.divergence_detected && (
               <div className="callout" role="note">
-                <strong>Neighbours move in opposite directions.</strong> Within
-                about {report.query?.window_deg ?? 5}° of this cell, at least one
-                variable has both significant increases and significant
-                decreases. A single regional average would hide that.
+                <strong>Areas move in opposite directions.</strong> Significant increases and decreases both occur within this selection; an average can hide local differences.
               </div>
-            )}
-
-            {report.surface_inferred && (
-              <p className="surface-note">{report.surface_inferred.explanation}</p>
             )}
 
             {rows.length === 0 ? (
               <div className="empty-state">
                 <h3>No variables apply here</h3>
-                <p>
-                  None of the variables in this layer set has data at this
-                  location. That is common over open ocean, ice, or outside a
-                  land-only dataset. It does not mean nothing changed.
-                </p>
+                <p>None of the variables in this layer set applies at this location. This does not mean nothing changed.</p>
               </div>
             ) : (
               <>
                 <section className="report-section">
                   <div className="report-section__head">
-                    <h3>Variables that apply here</h3>
-                    <span className="field-help">Ranked by strength</span>
+                    <h3>Variables</h3>
+                    <span className="field-help">Ranked by strength and significance</span>
                   </div>
                   <div className="variable-list">
                     {rows.map((row) => (
-                      <VariableCard
-                        key={row.key}
-                        row={row}
-                        active={row.key === activeRow?.key}
-                        onSelect={onSelectVariable}
-                      />
+                      <VariableCard key={row.key} row={row} active={row.key === activeRow?.key} onSelect={onSelectVariable} />
                     ))}
                   </div>
                 </section>
@@ -274,66 +195,57 @@ export default function ReportPanel({
                   <div className="chart-header">
                     <div>
                       <h3>{activeRow?.variable} over time</h3>
-                      <p className="chart-sub">
-                        Annual anomaly with the stored Theil–Sen trend.
-                      </p>
+                      <p className="chart-sub">Annual anomaly with the stored Theil–Sen trend.</p>
                     </div>
                     {activeRow && <VerdictBadge row={activeRow} />}
                   </div>
-                  {timeseriesLoading && (
-                    <div className="loading-block" role="status">
-                      <div className="spinner" aria-hidden="true" />
-                      <p>Loading the annual time series…</p>
-                    </div>
-                  )}
-                  {timeseriesError && !timeseriesLoading && (
-                    <div className="empty-state" role="alert">
-                      <p>{timeseriesError}</p>
-                    </div>
-                  )}
+                  {timeseriesLoading && <div className="loading-block" role="status"><div className="spinner" aria-hidden="true" /><p>Loading time series…</p></div>}
+                  {timeseriesError && !timeseriesLoading && <div className="empty-state" role="alert"><p>{timeseriesError}</p></div>}
                   {timeseries && !timeseriesLoading && !timeseriesError && timeseries.applies && (
-                    <Suspense
-                      fallback={
-                        <div className="loading-block" role="status">
-                          <div className="spinner" aria-hidden="true" />
-                          <p>Loading the chart…</p>
-                        </div>
-                      }
-                    >
+                    <Suspense fallback={<div className="loading-block" role="status"><div className="spinner" aria-hidden="true" /><p>Loading chart…</p></div>}>
                       <TrendChart series={timeseries} />
                     </Suspense>
                   )}
-                  {timeseries && !timeseriesLoading && !timeseriesError && timeseries.applies === false && (
-                    <p className="field-help">{timeseries.summary}</p>
-                  )}
+                  {timeseries && !timeseriesLoading && !timeseriesError && timeseries.applies === false && <p className="field-help">{timeseries.summary}</p>}
                 </section>
 
+                {activeRow?.inside_place && (
+                  <section className="report-section">
+                    <h3>Inside this place</h3>
+                    <p className="field-help">
+                      Area-weighted share of valid cells: {Math.round((activeRow.inside_place.up || 0) * 100)}% significant increase, {Math.round((activeRow.inside_place.down || 0) * 100)}% significant decrease, {Math.round((activeRow.inside_place.none || 0) * 100)}% no significant change ({activeRow.inside_place.n_cells} cells).
+                    </p>
+                    {activeRow.inside_place_summary && <p className="field-help">{activeRow.inside_place_summary}</p>}
+                  </section>
+                )}
+
+                {report.neighbor_summary ? (
+                  <section className="report-section">
+                    <h3>Neighboring places</h3>
+                    <p className="field-help">{report.neighbor_summary}</p>
+                  </section>
+                ) : null}
+
                 <section className="report-section">
-                  <h3>Provenance for the charted variable</h3>
+                  <h3>Provenance</h3>
                   <Provenance row={activeRow} />
-                  <p className="field-help">
-                    Significance is the FDR-corrected Mann–Kendall result (α =
-                    0.05). Raw p-values are not shown.
-                  </p>
+                  <p className="field-help">Significance is the FDR-corrected Mann–Kendall result (α = 0.05). Raw p-values are not shown.</p>
                 </section>
               </>
             )}
 
-            <section className="report-section">
-              <h3>Nearby comparison</h3>
-              {activeRow?.nearby ? (
-                <p className="field-help">
-                  Within about {report.query?.window_deg ?? 5}°,{" "}
-                  {nearbyText(activeRow.nearby)} This is a local context check,
-                  not a separate statistical test.
-                </p>
-              ) : (
-                <p className="field-help">
-                  No nearby comparison is available for this location.
-                </p>
-              )}
-              <p className="field-help">{report.not_a_forecast}</p>
-            </section>
+            {!place && (
+              <section className="report-section">
+                <h3>Nearby comparison</h3>
+                {activeRow?.nearby ? (
+                  <p className="field-help">Within about {report.query?.window_deg ?? 5}°, {nearbyText(activeRow.nearby)} This is a local context check, not a separate statistical test.</p>
+                ) : (
+                  <p className="field-help">No nearby comparison is available.</p>
+                )}
+              </section>
+            )}
+
+            <p className="field-help">{report.not_a_forecast}</p>
           </>
         )}
       </div>
