@@ -970,6 +970,21 @@ pre {
   font-size: 0.76rem;
 }
 
+.plain-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.plain-list li {
+  margin-bottom: 0.25rem;
+}
+
+.plain-list strong {
+  color: var(--text);
+}
+
 .empty-state {
   padding: 1.5rem 1rem;
   text-align: center;

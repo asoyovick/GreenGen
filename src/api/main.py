@@ -11,7 +11,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.layer_store import LayerStore
@@ -80,8 +80,8 @@ def create_app(
             raise HTTPException(status_code=503, detail=detail)
         return s
 
-    @app.get("/")
-    def root():
+    @app.get("/api")
+    def api_index():
         return {
             "name": "Global Change Explorer API",
             "version": VERSION,
@@ -172,6 +172,11 @@ def create_app(
     # In demo mode the built frontend is served by the same process.
     dist = REPO_ROOT / "frontend" / "dist"
     if dist.exists():
+
+        @app.get("/", include_in_schema=False)
+        def frontend_index():
+            return FileResponse(dist / "index.html")
+
         app.mount("/", StaticFiles(directory=str(dist), html=True), name="frontend")
 
     return app
