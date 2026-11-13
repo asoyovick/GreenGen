@@ -37,3 +37,6 @@ frontend/.vite/
 .vscode/
 .idea/
 *.log
+
+# Place-selection build inputs/outputs (large/generated)
+/data/places/
