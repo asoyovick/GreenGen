@@ -58,11 +58,17 @@ class AppConfig:
 
     @property
     def layers_dir(self) -> Path:
+        override = os.environ.get("GCE_LAYERS_DIR")
+        if override:
+            return Path(override).expanduser().resolve()
         key = "layers_synthetic" if self.mode == "synthetic" else "layers_real"
         return REPO_ROOT / self.raw["paths"][key]
 
     @property
     def overlays_dir(self) -> Path:
+        override = os.environ.get("GCE_OVERLAYS_DIR")
+        if override:
+            return Path(override).expanduser().resolve()
         return REPO_ROOT / self.raw["paths"]["overlays"]
 
     def data_dir(self, key: str) -> Path:

@@ -17,6 +17,12 @@ def _sig(x, digits=2):
     return float(f"{x:.{digits}g}")
 
 
+def _as_bool(value) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes"}
+    return bool(value)
+
+
 def neighbor_shares(cls, lat0, lon0, half_width):
     win = cls.sel(lat=slice(lat0 - half_width, lat0 + half_width),
                   lon=slice(lon0 - half_width, lon0 + half_width))
@@ -56,24 +62,40 @@ def nearby_sentence(nb):
     return f"Nearby, {same:.0%} of surrounding cells show a significant change in the same direction."
 
 
-def build_report(lat, lon, layers, window=5.0):
-    """layers: dict of display name -> path to a layers Zarr. Returns a report dict."""
+def build_report(lat, lon, layers, window=5.0, datasets=None):
+    """layers: dict of display name -> path to a layers Zarr. Returns a report dict.
+
+    datasets: optional dict of display name -> already-open xarray Dataset. The
+    API loads layers once at startup and passes them here; when omitted, paths
+    are opened exactly as the skill documents.
+    """
+    datasets = datasets or {}
     rows = []
     for name, path in layers.items():
-        L = xr.open_zarr(path)
+        L = datasets.get(name)
+        if L is None:
+            L = xr.open_zarr(path)
         pt = L.sel(lat=lat, lon=lon, method="nearest")
         slope = float(pt["slope_per_decade"])
         if not np.isfinite(slope):
             continue  # variable does not apply at this location
         unit = L.attrs.get("units", "")
+        display = L.attrs.get("display_name", name)
         row = {
-            "variable": name,
+            "variable": display,
+            "key": L.attrs.get("variable", name),
             "unit": unit,
             "rate_per_decade": _sig(slope),
             "significant": bool(pt["significant"]),
             "standardized": _sig(float(pt["std_trend"])) if np.isfinite(float(pt["std_trend"])) else 0.0,
             "n_years": int(pt["n_years"]),
             "low_confidence": bool(pt["low_confidence"]),
+            "model_based": _as_bool(L.attrs.get("model_based", False)),
+            "synthetic": _as_bool(L.attrs.get("synthetic", False)),
+            "surface": L.attrs.get("surface", "unknown"),
+            "period": [L.attrs.get("period_start"), L.attrs.get("period_end")],
+            "source_dataset": L.attrs.get("source_dataset", ""),
+            "dataset_version": L.attrs.get("dataset_version", ""),
             "cell": {"lat": float(pt["lat"]), "lon": float(pt["lon"])},
         }
         row["summary"] = sentence(row, unit)
@@ -81,7 +103,27 @@ def build_report(lat, lon, layers, window=5.0):
         row["nearby_summary"] = nearby_sentence(row["nearby"])
         rows.append(row)
     rows.sort(key=lambda r: (not r["significant"], r["low_confidence"], -abs(r["standardized"])))
-    return {"query": {"lat": lat, "lon": lon, "window_deg": window}, "variables": rows}
+
+    diverging = [r for r in rows if r["nearby"] and r["nearby"]["up"] > 0.15 and r["nearby"]["down"] > 0.15]
+    if not rows:
+        summary = "No variables apply at this location."
+    else:
+        summary = rows[0]["summary"]
+        if diverging:
+            summary += (
+                f" Within about {window:g} degrees, {len(diverging)} of {len(rows)} variable(s) "
+                "show both significant increases and decreases, so neighboring areas are moving "
+                "in opposite directions."
+            )
+        elif rows[0]["nearby_summary"]:
+            summary += " " + rows[0]["nearby_summary"]
+    return {
+        "query": {"lat": lat, "lon": lon, "window_deg": window},
+        "variables": rows,
+        "summary": summary,
+        "divergence_detected": bool(diverging),
+        "not_a_forecast": "Observed change only; not a forecast. Non-significant means no significant change was detected, not that nothing changed.",
+    }
 
 
 def to_text(rep):
