@@ -1,4 +1,11 @@
+import { useState } from "react";
 import TrendChart from "./TrendChart.jsx";
+import {
+  copyText,
+  exportReportJson,
+  exportReportMarkdown,
+  shareUrl,
+} from "../lib/export.js";
 import {
   formatCoord,
   formatNumber,
@@ -106,10 +113,23 @@ export default function ReportPanel({
   timeseries,
   timeseriesLoading,
   timeseriesError,
+  layerId,
 }) {
+  const [copyStatus, setCopyStatus] = useState("");
   const rows = report?.variables || [];
   const activeRow =
     rows.find((row) => row.key === selectedVariable) || rows[0] || null;
+
+  async function copyLink() {
+    const ok = await copyText(
+      shareUrl(
+        report?.cell?.lat ?? selected.lat,
+        report?.cell?.lon ?? selected.lon,
+        layerId,
+      ),
+    );
+    setCopyStatus(ok ? "Shareable link copied." : "Could not copy the link.");
+  }
 
   if (!selected) {
     return (
@@ -178,6 +198,34 @@ export default function ReportPanel({
           <>
             <div className="report-summary" aria-live="polite">
               <p>{report.summary}</p>
+            </div>
+
+            <div className="report-export" aria-label="Export this report">
+              <span className="field-help">Export or share</span>
+              <div className="export-row">
+                <button
+                  type="button"
+                  className="button button--small"
+                  onClick={() => exportReportMarkdown(report)}
+                >
+                  Markdown
+                </button>
+                <button
+                  type="button"
+                  className="button button--small"
+                  onClick={() => exportReportJson(report)}
+                >
+                  JSON
+                </button>
+                <button type="button" className="button button--small" onClick={copyLink}>
+                  Copy link
+                </button>
+              </div>
+              {copyStatus && (
+                <p className="copy-status" role="status">
+                  {copyStatus}
+                </p>
+              )}
             </div>
 
             {report.divergence_detected && (

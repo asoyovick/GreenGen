@@ -647,8 +647,18 @@ pre {
 }
 
 .search-results button:hover,
-.search-results button:focus-visible {
+.search-results button:focus-visible,
+.search-results button.is-active {
   background: var(--surface-2);
+}
+
+.search-message {
+  margin: 0.45rem 0 0;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(98, 230, 187, 0.08);
+  color: #c9f6e7;
+  font-size: 0.76rem;
 }
 
 .search-results strong {
@@ -834,6 +844,24 @@ pre {
 }
 
 .report-summary p {
+  margin: 0;
+}
+
+.report-export {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.6rem 1.05rem 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: rgba(8, 26, 21, 0.55);
+}
+
+.report-export .copy-status {
+  flex-basis: 100%;
   margin: 0;
 }
 
@@ -1339,7 +1367,7 @@ pre {
   }
 
   .map-overlay--layers {
-    top: 4.6rem;
+    top: 7.8rem;
     left: 0.7rem;
   }
 
@@ -1379,7 +1407,7 @@ pre {
   }
 
   .map-overlay--layers {
-    top: 4.35rem;
+    top: 8.4rem;
     width: calc(100% - 4.4rem);
   }
 
@@ -1408,6 +1436,11 @@ pre {
 
   .surface-note,
   .callout {
+    margin-left: 0.75rem;
+    margin-right: 0.75rem;
+  }
+
+  .report-export {
     margin-left: 0.75rem;
     margin-right: 0.75rem;
   }
