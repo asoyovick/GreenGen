@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LayerLegend from "./LayerLegend.jsx";
 import LayerSwitcher from "./LayerSwitcher.jsx";
 import ReportPanel from "./ReportPanel.jsx";
+import SearchControl from "./SearchControl.jsx";
 import WorldMap from "./WorldMap.jsx";
 import { api } from "../api.js";
 import { normalizeLon } from "../lib/coords.js";
@@ -137,6 +138,9 @@ export default function Explorer({ health, layers }) {
           synthetic={health?.synthetic}
           onSelect={selectPoint}
         >
+          <div className="map-overlay map-overlay--search">
+            <SearchControl onSelect={selectPoint} />
+          </div>
           <div className="map-overlay map-overlay--layers">
             <LayerSwitcher
               metadata={layers}
@@ -164,6 +168,7 @@ export default function Explorer({ health, layers }) {
           timeseries={timeseriesState.data}
           timeseriesLoading={timeseriesState.status === "loading"}
           timeseriesError={timeseriesState.error}
+          layerId={selectedLayerId}
         />
       </aside>
     </div>
