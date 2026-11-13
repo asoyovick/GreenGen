@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./api.js";
+import Explorer from "./components/Explorer.jsx";
 import Footer from "./components/Footer.jsx";
 import Header from "./components/Header.jsx";
 import SyntheticBanner from "./components/SyntheticBanner.jsx";
@@ -161,13 +162,11 @@ export default function App() {
         mode={state.health?.mode}
       />
       <main id="main" className="app-main">
-        <section className="placeholder-panel" aria-label="Explorer workspace">
-          <h2>The map workspace is being assembled</h2>
-          <p>
-            Trend layers and variable metadata loaded successfully. The map,
-            layer switcher, report and chart mount in the next build step.
-          </p>
-        </section>
+        <Explorer
+          health={state.health}
+          layers={state.layers}
+          variables={state.variables}
+        />
       </main>
       <Footer
         health={state.health}
