@@ -185,7 +185,7 @@ def credentials_available() -> bool:
 
 
 def real_pipeline(cfg, datasets, *, only, force, jobs, skip_overlays, dry_run) -> int:
-    if not credentials_available():
+    if not dry_run and not credentials_available():
         print(
             "REAL PIPELINE NOT RUN: NASA CMR is reachable, but no Earthdata Login\n"
             "credentials were found (EARTHDATA_USERNAME/PASSWORD or ~/.netrc).\n"
@@ -210,21 +210,22 @@ def real_pipeline(cfg, datasets, *, only, force, jobs, skip_overlays, dry_run) -
         if not meta:
             log(f"skip {var}: no config/datasets.yaml entry")
             continue
+        outdir = raw_root / var
+        glob = meta.get("file_glob", "*")
+        have_raw = list(outdir.glob(glob)) if outdir.exists() else []
+        if dry_run:
+            # Catalog search is public: no login is needed to count granules.
+            run([sys.executable, str(DOWNLOAD),
+                 "--short-name", meta["short_name"], "--version", meta["version"],
+                 "--start", meta["download"]["start"], "--end", meta["download"]["end"],
+                 "--out", str(outdir), "--dry-run"])
+            continue
         if meta.get("format") == "HDF4":
             log(
                 f"skip {var}: {meta['short_name']} is HDF4. Convert to NetCDF first with "
                 "Harmony/rioxarray/pyhdf (see docs/NASA_DATA_GUIDE.md section 7.2), then "
                 "point --inputs at the converted files."
             )
-            continue
-        outdir = raw_root / var
-        glob = meta.get("file_glob", "*")
-        have_raw = list(outdir.glob(glob)) if outdir.exists() else []
-        if dry_run:
-            run([sys.executable, str(DOWNLOAD),
-                 "--short-name", meta["short_name"], "--version", meta["version"],
-                 "--start", meta["download"]["start"], "--end", meta["download"]["end"],
-                 "--out", str(outdir), "--dry-run"])
             continue
         if force or not have_raw:
             run([sys.executable, str(DOWNLOAD),
@@ -247,6 +248,9 @@ def real_pipeline(cfg, datasets, *, only, force, jobs, skip_overlays, dry_run) -
         trend_variable(var, cfg, cube, layers_dir / f"{var}_trend.zarr", jobs=jobs, force=force)
         results.append({"variable": var, "short_name": meta["short_name"],
                         "version": meta["version"], "doi": meta["doi"]})
+    if dry_run:
+        log("dry run complete: searched CMR only; nothing downloaded, no layers or manifest written")
+        return 0
     if skip_overlays:
         log("overlays skipped (--skip-overlays)")
     elif OVERLAYS.exists():

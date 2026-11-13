@@ -160,3 +160,59 @@ def test_missing_layers_returns_clear_503(empty_client):
     assert "make pipeline" in r.json()["detail"].lower()
     assert empty_client.get("/api/variables").status_code == 503
     assert empty_client.get("/api/layers").status_code == 503
+
+
+def test_api_index_lists_contract_and_scope(client):
+    r = client.get("/api")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["mode"] == "synthetic"
+    assert set(body["endpoints"]) >= {
+        "/api/health", "/api/variables", "/api/report", "/api/timeseries", "/api/layers"
+    }
+    assert "not a forecast" in body["note"].lower()
+
+
+def test_unknown_path_returns_json_404(client):
+    r = client.get("/api/does-not-exist")
+    assert r.status_code == 404
+    assert r.headers["content-type"].startswith("application/json")
+    assert "detail" in r.json()
+
+
+def test_cors_allows_the_dev_frontend(client):
+    r = client.options(
+        "/api/health",
+        headers={
+            "Origin": "http://127.0.0.1:5173",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert r.status_code == 200
+    assert r.headers["access-control-allow-origin"] == "http://127.0.0.1:5173"
+
+
+def test_root_serves_built_frontend_when_present(client):
+    from src.common.config import REPO_ROOT
+
+    built = REPO_ROOT / "frontend" / "dist" / "index.html"
+    r = client.get("/")
+    if built.exists():
+        assert r.status_code == 200
+        assert 'id="root"' in r.text
+    else:
+        assert r.status_code == 404
+
+
+def test_timeseries_unknown_variable_lists_available(client):
+    r = client.get("/api/timeseries", params={"lat": 0, "lon": 0, "variable": "nope"})
+    assert r.status_code == 404
+    detail = r.json()["detail"]
+    assert "nope" in detail
+    assert "precipitation" in detail
+
+
+def test_mode_headers_on_every_response(client):
+    r = client.get("/api/variables")
+    assert r.headers["X-GCE-Mode"] == "synthetic"
+    assert r.headers["X-GCE-Synthetic"] == "true"
