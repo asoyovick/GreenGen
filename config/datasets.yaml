@@ -1,0 +1,133 @@
+# Verified NASA dataset configuration.
+#
+# Verification method: NASA CMR collection search
+#   https://cmr.earthdata.nasa.gov/search/collections.json?short_name=<SHORT_NAME>
+# Verified on: 2026-11-13 (UTC).
+# Short names and versions below were returned by CMR on that date. File-level
+# variable names and units are marked "verify on first file" because NASA does
+# not guarantee them in the collection metadata and no authenticated download
+# was possible in this environment (no Earthdata Login credentials were present).
+#
+# DOIs were not returned by the CMR collection endpoint used here. They are left
+# as TODO on purpose rather than guessed. Fill them from the dataset landing page
+# in Earthdata Search before publishing.
+
+precipitation:
+  key: precipitation
+  display_name: Precipitation
+  short_name: GPM_3IMERGM
+  version: "07"
+  daac: NASA GES DISC
+  title: GPM IMERG Final Precipitation L3 1 month 0.1 degree x 0.1 degree V07
+  doi: "TODO: verify on the GPM_3IMERGM dataset page"
+  surface: [land, ocean]
+  model_based: false
+  native_resolution_deg: 0.1
+  period: ["2002-01", "2024-12"]
+  file_glob: "*.nc4"
+  format: NetCDF4
+  variable_in_file: precipitation       # verify on first file
+  units_in: mm/hr
+  units_out: mm/month
+  units_op: mm_per_hr_to_mm_per_month
+  notes: >-
+    IMERG monthly is a rate in mm/hr; multiply by 24 * days in month. Reliability
+    is lower at high latitudes. Final run, version 07.
+  download:
+    start: "2002-01-01"
+    end: "2024-12-31"
+    out: data/raw/precipitation
+
+vegetation:
+  key: vegetation
+  display_name: Vegetation greenness (NDVI)
+  short_name: MOD13C2
+  version: "061"
+  daac: NASA LP DAAC
+  title: MODIS/Terra Vegetation Indices Monthly L3 Global 0.05Deg CMG V061
+  doi: "TODO: verify on the MOD13C2 dataset page"
+  surface: [land]
+  model_based: false
+  native_resolution_deg: 0.05
+  period: ["2000-02", "2024-12"]
+  file_glob: "*.hdf"
+  format: HDF4
+  variable_in_file: 'CMG 0.05 Deg Monthly NDVI'   # verify on first file
+  units_in: NDVI
+  units_out: NDVI
+  units_op: scale:0.0001
+  notes: >-
+    HDF4 cannot be opened by xarray directly. Convert one file to NetCDF with
+    Harmony, or read with rioxarray/GDAL or pyhdf, then point the prep step at the
+    NetCDF files. The pipeline refuses to silently skip or fabricate this variable.
+  download:
+    start: "2000-02-01"
+    end: "2024-12-31"
+    out: data/raw/vegetation
+
+temperature:
+  key: temperature
+  display_name: Air temperature at 2 m
+  short_name: M2TMNXSLV
+  version: "5.12.4"
+  daac: NASA GES DISC
+  title: MERRA-2 tavgM_2d_slv_Nx monthly mean single-level assimilation
+  doi: "TODO: verify on the M2TMNXSLV dataset page"
+  surface: [land, ocean]
+  model_based: true
+  model_note: Model-based reanalysis, not a direct observation.
+  native_resolution_deg: [0.5, 0.625]
+  period: ["1980-01", "present"]
+  file_glob: "*.nc4"
+  format: NetCDF4
+  variable_in_file: T2M
+  units_in: K
+  units_out: degC
+  units_op: k_to_c
+  notes: >-
+    MERRA-2 is a reanalysis (model-based). Trends can reflect changes in the
+    assimilated observing system. Label as model-based in the UI.
+  download:
+    start: "2002-01-01"
+    end: "2024-12-31"
+    out: data/raw/temperature
+
+water_storage:
+  key: water_storage
+  display_name: Terrestrial water storage
+  short_name: TELLUS_GRAC-GRFO_MASCON_GRID_RL06.3_V4
+  version: RL06.3Mv04
+  daac: NASA PO.DAAC
+  title: JPL GRACE and GRACE-FO Mascon Ocean, Ice, and Hydrology Equivalent Water Height
+  doi: "TODO: verify on the PO.DAAC dataset page"
+  surface: [land]
+  model_based: false
+  native_resolution_deg: 0.5
+  effective_resolution: hundreds of km (mascon; cell values are regional averages)
+  period: ["2002-04", "present, with a 2017-2018 gap between missions"]
+  file_glob: "*.nc"
+  format: NetCDF4
+  variable_in_file: lwe_thickness       # verify on first file; units cm
+  units_in: cm
+  units_out: cm water equivalent
+  units_op: null
+  notes: >-
+    Longitudes are often 0-360 (prep normalizes them). Leave the 2017-2018 gap
+    missing; never interpolate it. Coarse sensor: do not present as local detail.
+  download:
+    start: "2002-04-01"
+    end: "2024-12-31"
+    out: data/raw/water_storage
+
+# Optional stretch datasets, names verified by CMR but not configured for the
+# pipeline in this build.
+stretch:
+  soil_moisture:
+    short_name: GLDAS_NOAH025_M
+    version: "2.1"
+    daac: NASA GES DISC
+    model_based: true
+  sea_ice:
+    short_name: NSIDC-0051
+    version: "2"
+    daac: NASA NSIDC DAAC
