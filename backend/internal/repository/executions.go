@@ -16,6 +16,7 @@ type ExecutionStore interface {
 	Available() bool
 	Create(ctx context.Context, ex domain.InvestigationExecution, job *domain.Job, requestPayload any) (domain.InvestigationExecution, error)
 	Get(ctx context.Context, id string) (domain.InvestigationExecution, bool, error)
+	UpdateStatus(ctx context.Context, id string, status domain.ExecutionStatus, errCode, errMsg, engineJobRef string) error
 }
 
 type DBExecutionStore struct {
@@ -119,6 +120,39 @@ LIMIT 1`, id)
 	return ex, true, nil
 }
 
+func (s *DBExecutionStore) UpdateStatus(ctx context.Context, id string, status domain.ExecutionStatus, errCode, errMsg, engineJobRef string) error {
+	if !s.Available() {
+		return fmt.Errorf("database not configured")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	_, err = tx.ExecContext(ctx, `
+UPDATE investigation_executions
+SET status=$2, error_code=$3, error_message=$4, updated_at=NOW(),
+    started_at = CASE WHEN $2 IN ('queued','running') AND started_at IS NULL THEN NOW() ELSE started_at END,
+    completed_at = CASE WHEN $2 IN ('completed','failed') THEN NOW() ELSE completed_at END
+WHERE id::text=$1
+`, id, status, nullIfEmpty(errCode), nullIfEmpty(errMsg))
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `
+UPDATE jobs
+SET status=$2, error_code=$3, error_message=$4, engine_job_reference=COALESCE(NULLIF($5,''), engine_job_reference), updated_at=NOW(),
+    queued_at = CASE WHEN $2='queued' AND queued_at IS NULL THEN NOW() ELSE queued_at END,
+    started_at = CASE WHEN $2='running' AND started_at IS NULL THEN NOW() ELSE started_at END,
+    completed_at = CASE WHEN $2 IN ('completed','failed') THEN NOW() ELSE completed_at END
+WHERE investigation_execution_id::text=$1
+`, id, status, nullIfEmpty(errCode), nullIfEmpty(errMsg), engineJobRef)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 type MemoryExecutionStore struct {
 	mu    sync.RWMutex
 	items map[string]domain.InvestigationExecution
@@ -148,6 +182,28 @@ func (s *MemoryExecutionStore) Get(_ context.Context, id string) (domain.Investi
 	defer s.mu.RUnlock()
 	ex, ok := s.items[id]
 	return ex, ok, nil
+}
+
+func (s *MemoryExecutionStore) UpdateStatus(_ context.Context, id string, status domain.ExecutionStatus, errCode, errMsg, _ string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ex, ok := s.items[id]
+	if !ok {
+		return fmt.Errorf("execution not found")
+	}
+	ex.Status = status
+	ex.ErrorCode = errCode
+	ex.ErrorMessage = errMsg
+	now := time.Now().UTC()
+	ex.UpdatedAt = now
+	if (status == domain.ExecutionQueued || status == domain.ExecutionRunning) && ex.StartedAt == nil {
+		ex.StartedAt = &now
+	}
+	if status == domain.ExecutionCompleted || status == domain.ExecutionFailed {
+		ex.CompletedAt = &now
+	}
+	s.items[id] = ex
+	return nil
 }
 
 func nullIfEmpty(s string) any {

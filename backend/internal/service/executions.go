@@ -69,12 +69,16 @@ func (s *ExecutionService) Submit(ctx context.Context, req ExecutionRequest) (Su
 
 	// Attempt engine submission if configured and execution is pending (not pre-failed)
 	if s.engine != nil && created.Status == domain.ExecutionPending {
-		_, engStatus, engErr := s.engine.Submit(ctx, created.ID, strings.TrimSpace(req.InvestigationID), req, inv.Dataset)
+		engineJobRef, engStatus, engErr := s.engine.Submit(ctx, created.ID, strings.TrimSpace(req.InvestigationID), req, inv.Dataset)
 		if engErr != nil {
-			// Reflect failure in returned object (persistence of status update depends on store implementation)
-			created.Status = domain.ExecutionFailed
-			created.ErrorCode = "ENGINE_SUBMISSION_FAILED"
-			created.ErrorMessage = fmt.Sprintf("Engine submission failed: %v. No scientific results were generated.", engErr)
+			_ = s.store.UpdateStatus(ctx, created.ID, domain.ExecutionFailed, "ENGINE_SUBMISSION_FAILED", fmt.Sprintf("Engine submission failed: %v. No scientific results were generated.", engErr), "")
+			if updated, ok, _ := s.store.Get(ctx, created.ID); ok {
+				created = updated
+			} else {
+				created.Status = domain.ExecutionFailed
+				created.ErrorCode = "ENGINE_SUBMISSION_FAILED"
+				created.ErrorMessage = fmt.Sprintf("Engine submission failed: %v. No scientific results were generated.", engErr)
+			}
 			return SubmitExecutionResult{
 				Execution: created,
 				Accepted:  true,
@@ -82,7 +86,12 @@ func (s *ExecutionService) Submit(ctx context.Context, req ExecutionRequest) (Su
 			}, nil, nil
 		}
 		_ = engStatus
-		created.Status = domain.ExecutionQueued
+		_ = s.store.UpdateStatus(ctx, created.ID, domain.ExecutionQueued, "", "", engineJobRef)
+		if updated, ok, _ := s.store.Get(ctx, created.ID); ok {
+			created = updated
+		} else {
+			created.Status = domain.ExecutionQueued
+		}
 		return SubmitExecutionResult{
 			Execution: created,
 			Accepted:  true,
