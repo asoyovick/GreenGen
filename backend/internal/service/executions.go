@@ -12,6 +12,7 @@ import (
 
 type Engine interface {
 	Submit(ctx context.Context, executionID, investigationID string, req ExecutionRequest, dataset map[string]any) (engineJobRef string, status string, err error)
+	GetStatus(ctx context.Context, executionID string) (status string, errCode string, errMsg string, err error)
 }
 
 type ExecutionService struct {
@@ -124,4 +125,63 @@ func (s *ExecutionService) Get(ctx context.Context, id string) (domain.Investiga
 		return domain.InvestigationExecution{}, false, nil
 	}
 	return s.store.Get(ctx, id)
+}
+
+func mapEngineStatus(status string) (domain.ExecutionStatus, bool) {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "pending":
+		return domain.ExecutionPending, true
+	case "queued":
+		return domain.ExecutionQueued, true
+	case "running", "analyzing", "retrieving", "processing":
+		return domain.ExecutionRunning, true
+	case "completed", "succeeded", "success":
+		return domain.ExecutionCompleted, true
+	case "failed", "error":
+		return domain.ExecutionFailed, true
+	default:
+		return "", false
+	}
+}
+
+func (s *ExecutionService) Refresh(ctx context.Context, id string) (domain.InvestigationExecution, bool, error) {
+	ex, ok, err := s.Get(ctx, id)
+	if err != nil || !ok {
+		return ex, ok, err
+	}
+	// Only sync non-terminal states; never fabricate completion/results.
+	if ex.Status == domain.ExecutionCompleted || ex.Status == domain.ExecutionFailed {
+		return ex, true, nil
+	}
+	if s.engine == nil {
+		return ex, true, nil
+	}
+	refreshCtx := ctx
+	cancel := func() {}
+	if s.EngineTimeout > 0 {
+		refreshCtx, cancel = context.WithTimeout(ctx, s.EngineTimeout)
+	}
+	st, errCode, errMsg, engErr := s.engine.GetStatus(refreshCtx, id)
+	cancel()
+	if engErr != nil {
+		return ex, true, nil // keep current state; sync best-effort
+	}
+	mapped, ok := mapEngineStatus(st)
+	if !ok || mapped == ex.Status {
+		return ex, true, nil
+	}
+	// Do not mark completed here without verified results integration; treat as running/failed/pending/queued only
+	// unless explicitly failed. Completed requires result persistence/verification path (future #015/#041/#043).
+	if mapped == domain.ExecutionCompleted {
+		// keep as running/queued until result ingestion is implemented
+		return ex, true, nil
+	}
+	_ = s.store.UpdateStatus(ctx, id, mapped, errCode, errMsg, "")
+	if updated, ok, _ := s.store.Get(ctx, id); ok {
+		return updated, true, nil
+	}
+	ex.Status = mapped
+	ex.ErrorCode = errCode
+	ex.ErrorMessage = errMsg
+	return ex, true, nil
 }

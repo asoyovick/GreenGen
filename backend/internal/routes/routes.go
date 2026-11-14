@@ -37,6 +37,9 @@ func NewRouter(svc Services) http.Handler {
 	mux.HandleFunc("GET /api/v1/executions/{id}/results", func(w http.ResponseWriter, r *http.Request) {
 		exec.GetResults(w, r, strings.TrimSpace(r.PathValue("id")))
 	})
+	mux.HandleFunc("POST /api/v1/executions/{id}/refresh", func(w http.ResponseWriter, r *http.Request) {
+		exec.RefreshExecution(w, r, strings.TrimSpace(r.PathValue("id")))
+	})
 
 	// Draft endpoints (not yet fully implemented) - explicit responses, no fabricated results.
 	notImplemented := func(msg string) http.HandlerFunc {

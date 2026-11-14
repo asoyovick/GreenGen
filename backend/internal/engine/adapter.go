@@ -38,3 +38,16 @@ func (a ServiceAdapter) Submit(ctx context.Context, executionID, investigationID
 	}
 	return acc.EngineJobReference, status, nil
 }
+
+func (a ServiceAdapter) GetStatus(ctx context.Context, executionID string) (string, string, string, error) {
+	st, err := a.Client.GetStatus(ctx, executionID)
+	if err != nil {
+		return "", "ENGINE_STATUS_UNAVAILABLE", err.Error(), err
+	}
+	errCode, _ := st.Raw["error_code"].(string)
+	errMsg := st.Error
+	if errMsg == "" {
+		errMsg, _ = st.Raw["error_message"].(string)
+	}
+	return st.Status, errCode, errMsg, nil
+}

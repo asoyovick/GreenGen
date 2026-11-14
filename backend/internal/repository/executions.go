@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,13 +48,37 @@ func (s *DBExecutionStore) Create(ctx context.Context, ex domain.InvestigationEx
 
 	var execID string
 	var requestedAt, updatedAt time.Time
-	err = tx.QueryRowContext(ctx, `
+	idKey := extractIdempotencyKey(payload)
+	// try insert with idempotency_key (schema 000002); fallback for older schema
+	if _, spErr := tx.ExecContext(ctx, `SAVEPOINT sp_exec_insert`); spErr == nil {
+		err = tx.QueryRowContext(ctx, `
+INSERT INTO investigation_executions (
+	investigation_id, status, scientific_variable, period_start, period_end, request_payload,
+	error_code, error_message, idempotency_key, requested_at, updated_at
+) VALUES ($1::uuid,$2,$3,$4::date,$5::date,$6::jsonb,$7,$8,NULLIF($9,''),NOW(),NOW())
+RETURNING id::text, requested_at, updated_at
+`, invUUID, ex.Status, ex.InvestigationID, nullIfEmpty(ptrString(ex.PeriodStart)), nullIfEmpty(ptrString(ex.PeriodEnd)), string(payload), nullIfEmpty(ex.ErrorCode), nullIfEmpty(ex.ErrorMessage), idKey).Scan(&execID, &requestedAt, &updatedAt)
+		if err != nil {
+			_, _ = tx.ExecContext(ctx, `ROLLBACK TO SAVEPOINT sp_exec_insert`)
+			err = tx.QueryRowContext(ctx, `
 INSERT INTO investigation_executions (
 	investigation_id, status, scientific_variable, period_start, period_end, request_payload,
 	error_code, error_message, requested_at, updated_at
 ) VALUES ($1::uuid,$2,$3,$4::date,$5::date,$6::jsonb,$7,$8,NOW(),NOW())
 RETURNING id::text, requested_at, updated_at
 `, invUUID, ex.Status, ex.InvestigationID, nullIfEmpty(ptrString(ex.PeriodStart)), nullIfEmpty(ptrString(ex.PeriodEnd)), string(payload), nullIfEmpty(ex.ErrorCode), nullIfEmpty(ex.ErrorMessage)).Scan(&execID, &requestedAt, &updatedAt)
+		} else {
+			_, _ = tx.ExecContext(ctx, `RELEASE SAVEPOINT sp_exec_insert`)
+		}
+	} else {
+		err = tx.QueryRowContext(ctx, `
+INSERT INTO investigation_executions (
+	investigation_id, status, scientific_variable, period_start, period_end, request_payload,
+	error_code, error_message, requested_at, updated_at
+) VALUES ($1::uuid,$2,$3,$4::date,$5::date,$6::jsonb,$7,$8,NOW(),NOW())
+RETURNING id::text, requested_at, updated_at
+`, invUUID, ex.Status, ex.InvestigationID, nullIfEmpty(ptrString(ex.PeriodStart)), nullIfEmpty(ptrString(ex.PeriodEnd)), string(payload), nullIfEmpty(ex.ErrorCode), nullIfEmpty(ex.ErrorMessage)).Scan(&execID, &requestedAt, &updatedAt)
+	}
 	if err != nil {
 		return domain.InvestigationExecution{}, err
 	}
@@ -78,9 +103,48 @@ VALUES ($1::uuid,$2,$3,0,1,$4::jsonb,$5,$6,NOW(),NOW())
 	return ex, nil
 }
 
-func (s *DBExecutionStore) GetByIdempotencyKey(context.Context, string) (domain.InvestigationExecution, bool, error) {
-	// Idempotency persistence requires schema support (e.g. executions.idempotency_key). Not yet implemented.
-	return domain.InvestigationExecution{}, false, nil
+func (s *DBExecutionStore) GetByIdempotencyKey(ctx context.Context, key string) (domain.InvestigationExecution, bool, error) {
+	if !s.Available() || strings.TrimSpace(key) == "" {
+		return domain.InvestigationExecution{}, false, nil
+	}
+	row := s.db.QueryRowContext(ctx, `
+SELECT e.id::text, i.code, e.status, e.period_start::text, e.period_end::text, e.error_code, e.error_message,
+       e.requested_at, e.started_at, e.completed_at, e.updated_at
+FROM investigation_executions e
+JOIN investigations i ON i.id = e.investigation_id
+WHERE e.idempotency_key = $1
+LIMIT 1`, key)
+	var ex domain.InvestigationExecution
+	var periodStart, periodEnd, errCode, errMsg sql.NullString
+	var startedAt, completedAt sql.NullTime
+	err := row.Scan(&ex.ID, &ex.InvestigationID, &ex.Status, &periodStart, &periodEnd, &errCode, &errMsg,
+		&ex.RequestedAt, &startedAt, &completedAt, &ex.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.InvestigationExecution{}, false, nil
+	}
+	if err != nil {
+		// column/table may not exist yet in some environments
+		return domain.InvestigationExecution{}, false, nil
+	}
+	if periodStart.Valid {
+		ex.PeriodStart = &periodStart.String
+	}
+	if periodEnd.Valid {
+		ex.PeriodEnd = &periodEnd.String
+	}
+	if errCode.Valid {
+		ex.ErrorCode = errCode.String
+	}
+	if errMsg.Valid {
+		ex.ErrorMessage = errMsg.String
+	}
+	if startedAt.Valid {
+		ex.StartedAt = &startedAt.Time
+	}
+	if completedAt.Valid {
+		ex.CompletedAt = &completedAt.Time
+	}
+	return ex, true, nil
 }
 
 func (s *DBExecutionStore) Get(ctx context.Context, id string) (domain.InvestigationExecution, bool, error) {
@@ -253,14 +317,32 @@ func ptrString(p *string) string {
 	return *p
 }
 
+type ExecutionRequestPayload struct {
+	IdempotencyKey string `json:"idempotency_key,omitempty"`
+}
+
 func extractIdempotencyKey(payload any) string {
-	m, ok := payload.(map[string]any)
-	if !ok {
-		return ""
-	}
-	for _, k := range []string{"idempotency_key", "idempotencyKey"} {
-		if v, ok := m[k].(string); ok && v != "" {
-			return v
+	switch p := payload.(type) {
+	case map[string]any:
+		for _, k := range []string{"idempotency_key", "idempotencyKey", "IdempotencyKey"} {
+			if v, ok := p[k].(string); ok && strings.TrimSpace(v) != "" {
+				return strings.TrimSpace(v)
+			}
+		}
+	case []byte:
+		var m map[string]any
+		if json.Unmarshal(p, &m) == nil {
+			return extractIdempotencyKey(m)
+		}
+	case string:
+		return extractIdempotencyKey([]byte(p))
+	default:
+		b, err := json.Marshal(p)
+		if err == nil {
+			var m map[string]any
+			if json.Unmarshal(b, &m) == nil {
+				return extractIdempotencyKey(m)
+			}
 		}
 	}
 	return ""

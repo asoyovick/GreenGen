@@ -88,3 +88,19 @@ func (h *ExecutionHandler) GetResults(w http.ResponseWriter, r *http.Request, id
 		},
 	})
 }
+
+func (h *ExecutionHandler) RefreshExecution(w http.ResponseWriter, r *http.Request, id string) {
+	ex, ok, err := h.svc.Refresh(r.Context(), id)
+	if err != nil {
+		writeError(w, "INTERNAL_ERROR", "Failed to refresh execution status.", map[string]any{"id": id, "error": err.Error()})
+		return
+	}
+	if !ok {
+		writeError(w, "NOT_FOUND", "Execution not found.", map[string]any{"id": id})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"execution": ex,
+		"message":   "Status refresh attempted (draft). Completion requires verified result ingestion; no fabricated results.",
+	})
+}
