@@ -55,19 +55,23 @@ func main() {
 	}
 
 	var invRepo *repository.InvestigationRepository
+	var execStore repository.ExecutionStore
 	if database != nil {
 		invRepo = repository.NewInvestigationRepository(database.SQL)
+		execStore = repository.NewDBExecutionStore(database.SQL)
 		if err := invRepo.EnsureSeeded(ctx); err != nil {
 			log.Printf("ensure seeded investigations failed: %v", err)
 		}
 	} else {
 		invRepo = repository.NewInvestigationRepository(nil)
+		execStore = repository.NewMemoryExecutionStore()
 	}
 	invSvc := service.NewInvestigationService(invRepo)
+	execSvc := service.NewExecutionService(invSvc, execStore)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.HTTPPort,
-		Handler:      routes.NewRouter(routes.Services{Investigations: invSvc}),
+		Handler:      routes.NewRouter(routes.Services{Investigations: invSvc, Executions: execSvc}),
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
 	}

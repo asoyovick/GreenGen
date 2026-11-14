@@ -11,12 +11,14 @@ import (
 
 type Services struct {
 	Investigations *service.InvestigationService
+	Executions     *service.ExecutionService
 }
 
 func NewRouter(svc Services) http.Handler {
 	mux := http.NewServeMux()
 	health := handlers.NewHealthHandler()
 	inv := handlers.NewInvestigationHandler(svc.Investigations)
+	exec := handlers.NewExecutionHandler(svc.Executions)
 
 	mux.HandleFunc("GET /api/health", health.GetHealth)
 	mux.HandleFunc("GET /api/v1/health", health.GetHealth)
@@ -28,6 +30,14 @@ func NewRouter(svc Services) http.Handler {
 	})
 	mux.HandleFunc("POST /api/v1/executions/validate", inv.ValidateExecution)
 
+	mux.HandleFunc("POST /api/v1/executions", exec.SubmitExecution)
+	mux.HandleFunc("GET /api/v1/executions/{id}", func(w http.ResponseWriter, r *http.Request) {
+		exec.GetExecution(w, r, strings.TrimSpace(r.PathValue("id")))
+	})
+	mux.HandleFunc("GET /api/v1/executions/{id}/results", func(w http.ResponseWriter, r *http.Request) {
+		exec.GetResults(w, r, strings.TrimSpace(r.PathValue("id")))
+	})
+
 	// Draft endpoints (not yet fully implemented) - explicit responses, no fabricated results.
 	notImplemented := func(msg string) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -36,10 +46,7 @@ func NewRouter(svc Services) http.Handler {
 			_, _ = w.Write([]byte(`{"error":{"code":"NOT_IMPLEMENTED","message":"` + msg + `"}}`))
 		}
 	}
-	mux.HandleFunc("POST /api/v1/executions", notImplemented("Investigation execution is not implemented yet. Contract, persistence, and job/engine orchestration are pending (see #015/#016)."))
-	mux.HandleFunc("GET /api/v1/executions/{id}", notImplemented("Execution status retrieval is not implemented yet."))
-	mux.HandleFunc("GET /api/v1/executions/{id}/results", notImplemented("Execution results retrieval is not implemented yet."))
-	mux.HandleFunc("GET /api/v1/executions/{id}/summary", notImplemented("Execution summary retrieval is not implemented yet."))
+	mux.HandleFunc("GET /api/v1/executions/{id}/summary", notImplemented("Execution summary is not implemented yet (depends on analysis results)."))
 	mux.HandleFunc("GET /api/v1/executions/{id}/cells/{cellId}", notImplemented("Cell-level results retrieval is not implemented yet."))
 	mux.HandleFunc("GET /api/v1/executions/{id}/report", notImplemented("Execution report retrieval is not implemented yet."))
 
