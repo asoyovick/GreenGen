@@ -1,6 +1,6 @@
-import { getExecutionStatus, getExecutionSummary } from "../api/analysis.js";
+import { getExecutionStatus, getExecutionSummary, refreshExecutionStatus, isResultsUnavailable } from "../api/analysis.js";
 import { qs, clear, el, getParam } from "../utils/helpers.js";
-import { statusLabel, formatDateTime } from "../utils/formatting.js";
+import { statusLabel } from "../utils/formatting.js";
 
 function renderMeta(obj) {
   const dl = el("dl", { class: "dl" });
@@ -12,7 +12,7 @@ function renderMeta(obj) {
   return dl;
 }
 
-async function load(id) {
+async function load(id, doRefresh = false) {
   const statusEl = qs("#analysis-status");
   const details = qs("#execution-details");
   const summary = qs("#results-summary");
@@ -25,18 +25,22 @@ async function load(id) {
   statusEl.innerHTML = '<span class="spinner" aria-hidden="true"></span> Loading execution status…';
   clear(details); clear(summary);
   try {
-    const st = await getExecutionStatus(id);
+    const res = doRefresh ? await refreshExecutionStatus(id) : await getExecutionStatus(id);
+    const st = res?.execution || res;
     const label = statusLabel(st?.status || st?.state);
     statusEl.className = st?.status === "failed" ? "notice notice-error" : st?.status === "completed" ? "notice notice-success" : "notice notice-info";
-    statusEl.textContent = `Execution ${id}: ${label}${st?.message ? ` — ${st.message}` : ""}`;
+    statusEl.textContent = `Execution ${id}: ${label}${st?.error_message ? ` — ${st.error_message}` : (res?.message ? ` — ${res.message}` : "")}`;
     details.append(el("h2", { text: "Execution details" }), renderMeta(st));
     if ((st?.status || st?.state) === "completed") {
       try {
         const sum = await getExecutionSummary(id);
-        summary.append(el("h2", { text: "Results summary" }), renderMeta(sum));
+        summary.append(el("h2", { text: "Results summary" }), renderMeta(sum?.execution ? sum : sum));
       } catch (e) {
-        summary.append(el("div", { class: "notice notice-warning", text: `Summary endpoint unavailable: ${e.message}` }));
+        const msg = isResultsUnavailable(e) ? (e?.data?.error?.message || "No verified summary available.") : `Summary endpoint unavailable: ${e.message}`;
+        summary.append(el("div", { class: "notice notice-warning", text: msg }));
       }
+    } else {
+      summary.append(el("div", { class: "notice notice-info", text: "Results/summary become available only after a completed execution with verified scientific outputs." }));
     }
   } catch (err) {
     statusEl.className = "notice notice-error";
@@ -50,8 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const refreshBtn = qs("#refresh-execution");
   const paramId = getParam("execution") || getParam("id");
   if (paramId && input) input.value = paramId;
-  const run = () => load((input?.value || "").trim());
-  loadBtn?.addEventListener("click", run);
-  refreshBtn?.addEventListener("click", run);
-  if (paramId) run();
+  loadBtn?.addEventListener("click", () => load((input?.value || "").trim(), false));
+  refreshBtn?.addEventListener("click", () => load((input?.value || "").trim(), true));
+  if (paramId) load(paramId, false);
 });

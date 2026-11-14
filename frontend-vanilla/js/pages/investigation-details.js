@@ -27,14 +27,27 @@ document.addEventListener("DOMContentLoaded", async () => {
   const status = qs("#details-status");
   const root = qs("#details-root");
   const id = getParam("id") || "INV-001";
+  function normalize(inv) {
+    if (!inv) return inv;
+    return {
+      ...inv,
+      question: inv.question || inv.scientific_question,
+      availability: inv.availability || inv.availability_status,
+      methodology: inv.methodology || inv.methodology_summary,
+      dataset: inv.dataset || (inv.dataset_name ? { name: inv.dataset_name } : inv.dataset),
+      variable: inv.variable || inv.scientific_variable || (inv.variables || []).join(", "),
+      coverage: inv.coverage || { spatial: inv.supported_geographical_coverage || inv.spatial, temporal: inv.supported_temporal_coverage || inv.temporal },
+      outputs: inv.outputs || inv.expected_outputs || [],
+    };
+  }
   try {
     const res = await getInvestigation(id);
-    const inv = res?.investigation || res;
-    render(inv || fallbackDetails[id] || { id, title: id, availability: "unavailable" }, res?.source);
+    const inv = normalize(res?.investigation || res);
+    render(inv || normalize(fallbackDetails[id]) || { id, title: id, availability: "unavailable" }, res?.source);
     status.hidden = true;
     root.hidden = false;
   } catch (err) {
-    const fb = fallbackDetails[id] || { id, title: id, question: "Details unavailable.", availability: "unavailable", limitations: [err.message] };
+    const fb = normalize(fallbackDetails[id] || { id, title: id, question: "Details unavailable.", availability: "unavailable", limitations: [err.message] });
     status.className = "notice notice-warning";
     status.textContent = `Backend details unavailable (${err.message}). Showing documented information where available.`;
     render(fb, "fallback");

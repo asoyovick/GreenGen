@@ -1,7 +1,10 @@
 # API and Data Contracts
 
-**Purpose:** Record agreed cross-team interfaces so frontend, Go backend, Python scientific engine, and data integration can develop in parallel (issue #026).  
-**Status:** **Draft v0.1** — proposed contracts to be reviewed/finalized in #031, #034, #016, #040, #043. Breaking changes must be versioned and communicated.
+**Purpose:** Record cross-team interfaces for frontend, Go backend, Python scientific engine, and data integration (issue #026).  
+**Status:** **Backend-finalized draft (v0.2, implementation-aligned)** — reflects the current Go backend implementation in `backend/` for team review/final sign-off. Items dependent on real NASA data, the scientific engine, and team decisions remain draft/TBD. Breaking changes must be versioned and communicated.
+
+> **Scientific integrity:** Go backend does not perform scientific calculations and does not fabricate NASA observations or scientific results. `completed`/results/summary/cells/report are only valid when backed by verified engine outputs and agreed ingestion rules. Synthetic/mock data must be clearly labelled and never treated as NASA results.
+
 
 ## 1. Versioning and conventions
 
@@ -103,22 +106,39 @@ Per-cell results must support all MVP measurements:
 }
 ```
 
-## 4. Backend ↔ Frontend HTTP API (proposed)
-**Owners:** Members 4 & 5 (finalize in #040/#014/#043). Base path placeholder: `/api/v1` (subject to final decision).
+## 4. Backend ↔ Frontend HTTP API (implemented draft)
+**Base path:** `/api/v1` (also `GET /api/health` for compatibility).
 
-### 4.1 Investigations
-- `GET /investigations` — list investigations (id, title, question, variables, dataset info, availability/status: implemented vs planned).
-- `GET /investigations/{id}` — details, supported bounds/period constraints, configuration schema.
+### 4.1 Health
+- `GET /health`, `GET /api/v1/health` → `200 {"status":"ok","service":"greengen-backend","database":{"status":"ok|unavailable|not_configured", ...}}`
 
-### 4.2 Executions
-- `POST /executions` — submit investigation execution.
-  - Request: `investigation_id`, `bounds` (bbox/polygon or preset id), `period` (`start`, `end`), options.
-  - Response: `execution_id`, initial `status`.
-- `GET /executions/{id}` — status and progress (`queued|retrieving|analyzing|completed|failed` + timestamps/errors).
-- `GET /executions/{id}/results` — grid-level results (GeoJSON/tiles/vector format TBD in #046) with classification and stats; supports filtering/pagination/tiling as needed.
-- `GET /executions/{id}/cells/{cellId}` — single-cell statistics and time series (observations, annual/monthly as available, trend line inputs).
-- `GET /executions/{id}/summary` — aggregate counts, provenance, methodology/config summary.
-- `GET /executions/{id}/report` — report payload/metadata and export links/formats (TBD).
+### 4.2 Investigations
+- `GET /api/v1/investigations` → `200 {"investigations":[...], "count": n}` (DB-backed when configured, seeded fallback; no fabricated results)
+- `GET /api/v1/investigations/{id}` → `200 {"investigation": {...}}` or `404 NOT_FOUND`
+- `POST /api/v1/executions/validate` — draft validation
+  - Request: `{"investigation_id":"INV-001","bounds":{"min_lon","min_lat","max_lon","max_lat"},"period":{"start":"YYYY-MM-DD","end":"YYYY-MM-DD"},"options"?:{}}`
+  - Response: `200 {"valid":true, ...}` or `422 {"valid":false,"issues":[{"field","issue"}],"error":{"code":"VALIDATION_ERROR",...}}`
+  - Enforces shape/range/order, availability status, and draft investigation-scoped suggested bounds/period when present. `ALLOW_PLANNED_EXECUTIONS=true` is a **dev/test-only** flag (does not imply real data/results).
+
+### 4.3 Executions
+- `POST /api/v1/executions` — submit (validated)
+  - Headers/body: supports `Idempotency-Key` / `X-Idempotency-Key` or `idempotency_key` (draft; in-memory replay implemented, DB persistence via migration `000002` when applied)
+  - Success (accepted/recorded): `202 {"execution_id","status","execution":{id,investigation_id,status,period_start,period_end,error_code?,error_message?,requested_at,started_at?,completed_at?,updated_at},"accepted":true,"message"}`
+  - Validation failure: `422 VALIDATION_ERROR` with issues/details (no execution created for invalid/unavailable requests)
+  - Behavior: engine unconfigured/submission failure → recorded as `failed` with explicit error (`ENGINE_UNAVAILABLE`/`ENGINE_SUBMISSION_FAILED`), no fabricated results; draft engine submit success → `queued`.
+- `GET /api/v1/executions/{id}` → `200 {"execution": {...}}` or `404 NOT_FOUND`
+- `POST /api/v1/executions/{id}/refresh` → `200 {"execution": {...}, "message": "..."}` or `404` (best-effort engine status sync; **completed not auto-applied without verified result ingestion**)
+
+### 4.4 Results and reports (honest unavailable states)
+- `GET /api/v1/executions/{id}/results` → `409 {"error":{"code":"RESULTS_UNAVAILABLE",...},"execution":{...}}` when no verified results exist, or `404` if execution missing
+- `GET /api/v1/executions/{id}/summary` → `409 {"error":{"code":"SUMMARY_UNAVAILABLE",...},"execution":{...}}` or `404`
+- `GET /api/v1/executions/{id}/cells/{cellId}` → `409 {"error":{"code":"CELL_RESULTS_UNAVAILABLE",...},"execution":{...}}` or `404`
+- `GET /api/v1/executions/{id}/report` → `409 {"error":{"code":"REPORT_UNAVAILABLE",...},"execution":{...}}` or `404`
+- **Note:** verified result ingestion/persistence and final payload formats (grid/GeoJSON/tiles, cell time series, report exports) are pending agreed contracts and real engine/data outputs (#031/#034/#041/#043/#046/#048).
+
+### 4.5 Execution statuses (implemented)
+`pending | queued | running | completed | failed` (state transitions enforced in service/store; `completed` requires verified result ingestion path — not fabricated by refresh). Initial submission without engine → `failed` (`ENGINE_UNAVAILABLE`); with engine submit accepted → `queued` (draft).
+
 
 ### 4.3 Legend/classification semantics (frontend-backend-engine alignment)
 - `significant_increase`: statistically significant increasing trend per agreed method/threshold.
@@ -127,18 +147,18 @@ Per-cell results must support all MVP measurements:
 - `insufficient_data`: inadequate observations/completeness for reliable analysis.
 - `inconclusive`: sensitive to assumptions or otherwise not interpretable as a clear class (criteria documented).
 
-### 4.4 Error format (proposed)
+### 4.6 Error format (implemented draft)
 ```json
 {
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "Human-readable summary",
-    "details": [{"field": "period.start", "issue": "outside supported range"}],
-    "request_id": "optional-correlation-id"
+    "details": [{"field": "period.start", "issue": "outside supported range"}]
   }
 }
 ```
-HTTP status codes should reflect the failure (400 validation, 404 not found, 409 conflict, 422 unprocessable, 500/503 server/service issues, etc.).
+Common codes: `VALIDATION_ERROR` (422/400), `NOT_FOUND` (404), `RESULTS_UNAVAILABLE`/`SUMMARY_UNAVAILABLE`/`CELL_RESULTS_UNAVAILABLE`/`REPORT_UNAVAILABLE` (409), `INTERNAL_ERROR` (500), `ENGINE_UNAVAILABLE`/`ENGINE_SUBMISSION_FAILED` (execution state/errors). HTTP status codes reflect failure.
+
 
 ### 4.5 Current prototype endpoints (informative)
 The existing prototype exposes read-only precomputed endpoints under `/api/*` (e.g. `/api/health`, `/api/variables`, `/api/layers`, `/api/report`, `/api/timeseries`) and serves overlays/static assets. These inform UX but are **not** the final execution-based contract above.
@@ -161,3 +181,5 @@ The existing prototype exposes read-only precomputed endpoints under `/api/*` (e
 | Date | Version | Notes |
 |---|---|---|
 | 2026-11-14 | 0.1-draft | Initial draft contracts and examples for #026. |
+| 2026-11-15 | 0.2-backend-draft | Aligned with current Go backend implementation (endpoints, validation, execution lifecycle, idempotency/refresh drafts, explicit unavailable result states, dev/test flags). Pending team sign-off and real data/engine/result ingestion contracts. |
+

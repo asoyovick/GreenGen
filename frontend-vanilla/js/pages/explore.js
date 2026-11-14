@@ -1,7 +1,7 @@
 import { config } from "../config.js";
 import { getApiHealth, listInvestigations } from "../api/investigations.js";
-import { getLayers, getPointReport, getPointTimeseries, getVariables, submitExecution, getExecutionStatus, getExecutionSummary } from "../api/analysis.js";
-import { isEndpointMissing } from "../api/analysis.js";
+import { getLayers, getPointReport, getPointTimeseries, getVariables, submitExecution, getExecutionStatus, getExecutionSummary, refreshExecutionStatus } from "../api/analysis.js";
+import { isEndpointMissing, isResultsUnavailable } from "../api/analysis.js";
 import { qs, clear, el, getParam } from "../utils/helpers.js";
 import { formatNumber, classificationLabel, statusLabel } from "../utils/formatting.js";
 import { validateDateRange, summarizeErrors } from "../utils/validation.js";
@@ -184,12 +184,17 @@ async function startPolling(executionId) {
   pollAbort = new AbortController();
   const tick = async () => {
     try {
-      const st = await getExecutionStatus(executionId, { signal: pollAbort.signal });
-      const s = st?.status || st?.state;
-      setStatus(`Execution ${executionId}: ${statusLabel(s)}${st?.message ? ` — ${st.message}` : ""}`, s === "failed" ? "error" : s === "completed" ? "success" : "info");
+      const res = await getExecutionStatus(executionId, { signal: pollAbort.signal });
+      const ex = res?.execution || res;
+      const s = ex?.status || ex?.state;
+      setStatus(`Execution ${executionId}: ${statusLabel(s)}${ex?.error_message ? ` — ${ex.error_message}` : (res?.message ? ` — ${res.message}` : "")}`, s === "failed" ? "error" : s === "completed" ? "success" : "info");
       const meta = qs("#execution-meta"); clear(meta);
-      [["Execution ID", executionId], ["Status", statusLabel(s)], ["Updated", st?.updated_at || st?.timestamp || "—"]].forEach(([k,v]) => { meta.append(el("dt",{text:k}), el("dd",{text:String(v??"—")})); });
+      [["Execution ID", executionId], ["Status", statusLabel(s)], ["Updated", ex?.updated_at || ex?.requested_at || "—"], ex?.error_code ? ["Code", ex.error_code] : null].filter(Boolean).forEach(([k,v]) => { meta.append(el("dt",{text:k}), el("dd",{text:String(v??"—")})); });
       if (["completed", "failed"].includes(s)) { stopPolling(); if (s === "completed") loadExecutionResults(executionId); }
+      else if (s === "queued" || s === "running") {
+        // best-effort draft refresh (backend endpoint may sync engine status)
+        refreshExecutionStatus(executionId, { signal: pollAbort.signal }).catch(() => {});
+      }
     } catch (err) {
       if (err?.name === "AbortError" || err?.code === "ABORTED") return;
       setStatus(`Status check failed: ${err.message}`, "error");
@@ -208,7 +213,13 @@ async function loadExecutionResults(executionId) {
     if (summary && meta) {
       meta.append(el("dt",{text:"Summary"}), el("dd",{text: typeof summary === "string" ? summary : JSON.stringify(summary)}));
     }
-  } catch { /* summary optional */ }
+  } catch (err) {
+    const meta = qs("#execution-meta");
+    if (meta) {
+      const msg = isResultsUnavailable(err) ? (err?.data?.error?.message || "No verified summary/results available.") : `Summary unavailable: ${err.message}`;
+      meta.append(el("dt",{text:"Results"}), el("dd",{text: msg}));
+    }
+  }
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -240,24 +251,48 @@ document.addEventListener("DOMContentLoaded", async () => {
     const { valid, errors } = validateDateRange(start, end);
     if (!investigation) errors.unshift({ field: "investigation", message: "Select an available investigation/variable." });
     if (!valid || errors.length) { errorsEl.textContent = summarizeErrors(errors); return; }
+    // Backend contract expects bbox bounds {min_lon,min_lat,max_lon,max_lat}.
+    const kenyaBounds = { min_lon: 33.9, min_lat: -4.7, max_lon: 41.9, max_lat: 5.5 };
+    let bounds = kenyaBounds;
+    if (selected && typeof selected.lat === "number" && typeof selected.lon === "number") {
+      const d = 0.05;
+      bounds = {
+        min_lon: Math.max(-180, selected.lon - d),
+        min_lat: Math.max(-90, selected.lat - d),
+        max_lon: Math.min(180, selected.lon + d),
+        max_lat: Math.min(90, selected.lat + d),
+      };
+    } else if (form.region.value && form.region.value !== "kenya" && form.region.value !== "custom") {
+      // Unknown region preset: fall back to Kenya default focus (draft).
+      bounds = kenyaBounds;
+    }
     const payload = {
       investigation_id: investigation,
-      bounds: selected ? { type: "point", lat: selected.lat, lon: selected.lon } : { type: "region", id: form.region.value || "kenya" },
+      bounds,
       period: { start, end },
     };
     setStatus("Submitting investigation to backend…", "info");
     qs("#run-btn").disabled = true;
     try {
       const res = await submitExecution(payload);
-      const executionId = res?.execution_id || res?.id;
-      if (!executionId) throw new Error("Backend did not return an execution identifier.");
-      setStatus(`Execution submitted: ${executionId}. Tracking status…`, "info");
+      const executionId = res?.execution_id || res?.id || res?.execution?.id;
+      if (!executionId) {
+        const msg = res?.error?.message || res?.message || "Backend did not return an execution identifier.";
+        throw new Error(msg);
+      }
+      if (res?.execution) {
+        setStatus(`Execution ${executionId}: ${statusLabel(res.execution.status || res.status)}${res.message ? ` — ${res.message}` : ""}`, (res.execution.status||res.status) === "failed" ? "error" : "info");
+      } else {
+        setStatus(`Execution submitted: ${executionId}. Tracking status…`, "info");
+      }
       startPolling(executionId);
     } catch (err) {
       if (isEndpointMissing(err)) {
         setStatus("Execution API is not available on the connected backend. This frontend cannot simulate analysis; connect the Go backend execution endpoints or use available precomputed prototype views.", "warning");
       } else {
-        setStatus(`Submission failed: ${err.message}`, "error");
+        const details = err?.data?.error?.details;
+        const detailText = Array.isArray(details) ? ` (${details.map(d=>`${d.field||'field'}: ${d.issue||d.message||''}`).join('; ')})` : "";
+        setStatus(`Submission failed: ${err.message}${detailText}`, "error");
       }
     } finally {
       qs("#run-btn").disabled = false;

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -106,8 +107,11 @@ func (s *InvestigationService) ValidateExecutionRequest(ctx context.Context, req
 		issues = append(issues, ValidationIssue{Field: "investigation_id", Issue: "investigation not found"})
 		return issues, nil
 	}
-	if inv.AvailabilityStatus != "available" {
+	allowPlanned := strings.EqualFold(strings.TrimSpace(os.Getenv("ALLOW_PLANNED_EXECUTIONS")), "true")
+	if inv.AvailabilityStatus != "available" && !(allowPlanned && inv.AvailabilityStatus == "planned") {
 		issues = append(issues, ValidationIssue{Field: "investigation_id", Issue: fmt.Sprintf("investigation is not available for execution (status: %s)", inv.AvailabilityStatus)})
+	} else if inv.AvailabilityStatus == "planned" && allowPlanned {
+		// allowed for development/integration testing only; results remain non-fabricated unless verified engine outputs are ingested
 	}
 	if req.Bounds == nil {
 		issues = append(issues, ValidationIssue{Field: "bounds", Issue: "required"})

@@ -29,6 +29,10 @@ export async function getCellDetails(executionId, cellId, opts = {}) {
   return get(withPrefix(config.contractApiPrefix, `/executions/${encodeURIComponent(executionId)}/cells/${encodeURIComponent(cellId)}`), opts);
 }
 
+export async function refreshExecutionStatus(executionId, opts = {}) {
+  return post(withPrefix(config.contractApiPrefix, `/executions/${encodeURIComponent(executionId)}/refresh`), {}, opts);
+}
+
 // Prototype-compatible read helpers (precomputed point/place reports/timeseries/layers)
 export async function getLayers(opts = {}) {
   return get(withPrefix(config.apiPrefix, "/layers"), opts);
@@ -45,4 +49,9 @@ export async function getPointTimeseries(lat, lon, variable, opts = {}) {
 
 export function isEndpointMissing(err) {
   return isNotFound(err) || isUnavailable(err) || err?.status === 501;
+}
+
+export function isResultsUnavailable(err) {
+  const code = err?.data?.error?.code || err?.code;
+  return err?.status === 409 || /UNAVAILABLE/i.test(String(code || ""));
 }

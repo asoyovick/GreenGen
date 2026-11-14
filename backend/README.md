@@ -45,6 +45,7 @@ Environment variables (see repository `.env.example`):
 - `HTTP_READ_TIMEOUT`, `HTTP_WRITE_TIMEOUT`, `HTTP_SHUTDOWN_TIMEOUT`, `REQUEST_TIMEOUT` (seconds or duration)
 - `PYTHON_ENGINE_URL`, `PYTHON_ENGINE_TIMEOUT` (engine integration, draft)
 - `CORS_ALLOWED_ORIGINS` (comma-separated)
+- `ALLOW_PLANNED_EXECUTIONS` (`true` enables dev/test-only execution submission for `planned` investigations; does not produce real/NASA results and does not bypass verified result ingestion requirements)
 
 ## Run locally
 ```bash
