@@ -1,44 +1,49 @@
 # GreenGen Backend (Go)
 
-Initial Go backend scaffold for GreenGen / Global Change Explorer.
+Go backend scaffold for GreenGen / Global Change Explorer (NASA GPM IMERG precipitation MVP, Kenya focus).
 
-## Status
-- **Phase 1 (assessment):** completed (no prior Go backend found).
-- **Phase 2 (database foundation, #003 draft):** initial PostgreSQL + PostGIS schema and migrations added in `backend/migrations/` with documentation in `backend/docs/DATABASE_SCHEMA.md` (for team review).
-- **Phase 3/4 (early scaffold):** basic HTTP server, config, middleware, health endpoint, investigation catalogue/detail endpoints backed by seeded definitions, and explicit `501 NOT_IMPLEMENTED` stubs for execution/results/report endpoints (no fabricated results).
-- **Not yet implemented:** DB connection/repository layer, migrations runner integration, execution/job orchestration, Python engine client/contract, real result persistence/retrieval, full validation, and comprehensive tests.
+## Status (incremental, draft)
+- **#003 (database foundation, draft):** PostgreSQL + PostGIS schema and migrations in `backend/migrations/` (`000001` initial schema/seed, `000002` idempotency key draft) with docs in `backend/docs/DATABASE_SCHEMA.md`. DB connection and SQL migration runner implemented (`AUTO_MIGRATE`, `MIGRATIONS_PATH`, `schema_migrations`). **Full apply/validation requires a PostgreSQL+PostGIS environment** (not all environments have PostGIS available).
+- **#014 (investigation/configuration, draft):** investigation catalogue/detail APIs backed by repository/service (DB-backed when configured, seeded fallback otherwise), plus execution request validation (`POST /api/v1/executions/validate`) including draft investigation-scoped bounds/period constraints and availability checks.
+- **#015 (execution flow, draft):** execution submission/status/refresh APIs with in-memory and DB-backed stores, draft idempotency handling, persisted engine submission outcomes, and explicit non-fabricated error/unavailable states. No real scientific results are generated/returned.
+- **#016 (Go↔Python integration, draft):** engine client interface + HTTP adapter scaffold (`PYTHON_ENGINE_URL`, `PYTHON_ENGINE_TIMEOUT`) and status lookup/refresh integration; protocol/schemas remain draft and must be finalized with Members 2/3 (#031/#034).
+- **Not yet implemented/finalized:** agreed contracts and schemas, PostGIS-validated migration runs in shared env, full orchestration/state machine with real engine/data, verified result ingestion/persistence, results/summary/cells/report delivery, and comprehensive DB/integration/contract tests.
+
+**Scientific integrity:** Go does not perform scientific calculations and must not fabricate NASA observations or results. Execution/completion/results are only valid when backed by verified engine outputs and agreed ingestion rules.
 
 ## Structure
 ```text
 backend/
-  cmd/api/            # application entrypoint
+  cmd/api/                # application entrypoint
   internal/
-    config/           # environment-based configuration
-    domain/           # domain models and seeded definitions
-    errors/           # API error helpers
-    handlers/         # HTTP handlers
-    middleware/       # logging, recovery, CORS
-    routes/           # route registration
-    repository/       # (planned) data access
-    db/               # (planned) DB connections/migrations
-    service/          # (planned) business logic
-    engine/           # (planned) Python scientific engine client
-  migrations/         # SQL migrations (up/down)
-  docs/               # schema/API notes
-  tests/              # (planned)
+    config/               # environment-based configuration
+    db/                   # DB connection and migration runner
+    domain/               # domain models and seeded definitions
+    engine/               # Python scientific engine client scaffold (draft)
+    errors/               # API error helpers
+    handlers/             # HTTP handlers
+    middleware/           # logging, recovery, CORS
+    repository/           # investigations/executions stores (DB + in-memory)
+    routes/               # route registration
+    service/              # business/validation/execution logic
+  migrations/             # SQL migrations (up/down)
+  docs/                   # schema/API notes
 ```
+
 
 ## Requirements
 - Go 1.22+
 - PostgreSQL 14+ with PostGIS (for DB-backed features)
 
 ## Configuration
-Environment variables (see repository `.env.example` / set locally):
+Environment variables (see repository `.env.example`):
 - `APP_ENV` (default `development`)
 - `HTTP_PORT` (default `8080`)
-- `DATABASE_URL` (PostgreSQL DSN, required once DB features enabled)
+- `DATABASE_URL` (PostgreSQL DSN; if unset, runs in seed-only/in-memory mode with no persistence)
+- `AUTO_MIGRATE` (`true` to apply migrations on startup)
+- `MIGRATIONS_PATH` (default `migrations`, relative to working directory or absolute)
 - `HTTP_READ_TIMEOUT`, `HTTP_WRITE_TIMEOUT`, `HTTP_SHUTDOWN_TIMEOUT`, `REQUEST_TIMEOUT` (seconds or duration)
-- `PYTHON_ENGINE_URL`, `PYTHON_ENGINE_TIMEOUT` (for #016 integration)
+- `PYTHON_ENGINE_URL`, `PYTHON_ENGINE_TIMEOUT` (engine integration, draft)
 - `CORS_ALLOWED_ORIGINS` (comma-separated)
 
 ## Run locally
@@ -46,32 +51,38 @@ Environment variables (see repository `.env.example` / set locally):
 cd backend
 go run ./cmd/api
 ```
-Health checks:
-- `GET /api/health`
-- `GET /api/v1/health`
+With DB (PostgreSQL+PostGIS required for schema):
+```bash
+cd backend
+DATABASE_URL='postgres://user:pass@localhost:5432/greengen?sslmode=disable' AUTO_MIGRATE=true go run ./cmd/api
+```
 
-Investigation endpoints (seeded catalogue, draft):
-- `GET /api/v1/investigations`
-- `GET /api/v1/investigations/{id}`
-
-Execution/results endpoints currently return `501 NOT_IMPLEMENTED` until contracts and orchestration are implemented.
+## API endpoints (draft)
+- `GET /api/health`, `GET /api/v1/health` — service/DB status
+- `GET /api/v1/investigations` — list investigations
+- `GET /api/v1/investigations/{id}` — investigation details
+- `POST /api/v1/executions/validate` — validate execution request (bounds/period/availability/draft constraints)
+- `POST /api/v1/executions` — submit execution (validated; creates/stores execution state, no fabricated results; `Idempotency-Key`/`X-Idempotency-Key` supported draft)
+- `GET /api/v1/executions/{id}` — execution status
+- `POST /api/v1/executions/{id}/refresh` — draft engine status sync (safe; no fabricated completion without verified result ingestion)
+- `GET /api/v1/executions/{id}/results` — returns explicit unavailable state if no verified results
+- `GET /api/v1/executions/{id}/summary` — explicit unavailable if no verified results/summary
+- `GET /api/v1/executions/{id}/cells/{cellId}` — explicit unavailable if no verified cell results
+- `GET /api/v1/executions/{id}/report` — explicit unavailable if no verified report
 
 ## Database migrations (#003)
-SQL migrations are in `backend/migrations/`:
-```bash
-# example with golang-migrate (install separately)
-migrate -path backend/migrations -database "$DATABASE_URL" up
-```
-Review `backend/docs/DATABASE_SCHEMA.md` before applying in shared environments.
+- `000001_init_schema.up.sql` / `.down.sql` — core PostGIS schema and seed
+- `000002_execution_idempotency.up.sql` / `.down.sql` — draft idempotency key
+Apply with your preferred tool or `AUTO_MIGRATE=true`. Review `backend/docs/DATABASE_SCHEMA.md` before applying in shared environments.
 
 ## Testing
 ```bash
 cd backend
 go test ./...
 ```
-(Additional unit/integration tests to be added as handlers, validation, repositories, and engine integration are implemented.)
+Current automated coverage includes config, service validation/execution behavior, repository in-memory execution store, and handler/API integration tests (httptest). DB/PostGIS and engine contract integration tests require appropriate environments and finalized contracts.
 
 ## Notes
 - Scientific calculations are performed by the Python scientific engine/service (not reimplemented in Go).
-- The backend must not fabricate NASA observations or scientific results; unavailable/unimplemented functionality returns explicit states/errors.
-- API paths/shapes follow the draft contract direction and must be finalized with frontend/scientific team members (`docs/CONTRIBUTION.md`, team issue discussions).
+- Backend must not fabricate NASA observations or scientific results; unimplemented/unavailable paths return explicit errors/states.
+- API paths/shapes and engine protocol follow draft contracts and must be finalized with team members (`docs/CONTRIBUTION.md`, `docs/API_CONTRACTS.md`).

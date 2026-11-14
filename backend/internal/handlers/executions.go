@@ -86,6 +86,67 @@ func (h *ExecutionHandler) GetResults(w http.ResponseWriter, r *http.Request, id
 			"message": "No scientific results are available for this execution.",
 			"details": map[string]any{"execution_id": ex.ID, "status": ex.Status, "reason": ex.ErrorMessage},
 		},
+		"execution": ex,
+	})
+}
+
+func (h *ExecutionHandler) GetSummary(w http.ResponseWriter, r *http.Request, id string) {
+	ex, ok, err := h.svc.Get(r.Context(), id)
+	if err != nil {
+		writeError(w, "INTERNAL_ERROR", "Failed to retrieve execution.", map[string]any{"id": id, "error": err.Error()})
+		return
+	}
+	if !ok {
+		writeError(w, "NOT_FOUND", "Execution not found.", map[string]any{"id": id})
+		return
+	}
+	writeJSON(w, http.StatusConflict, map[string]any{
+		"error": map[string]any{
+			"code":    "SUMMARY_UNAVAILABLE",
+			"message": "No analysis summary is available for this execution (no verified results).",
+			"details": map[string]any{"execution_id": ex.ID, "status": ex.Status},
+		},
+		"execution": ex,
+	})
+}
+
+func (h *ExecutionHandler) GetCell(w http.ResponseWriter, r *http.Request, id, cellID string) {
+	ex, ok, err := h.svc.Get(r.Context(), id)
+	if err != nil {
+		writeError(w, "INTERNAL_ERROR", "Failed to retrieve execution.", map[string]any{"id": id, "error": err.Error()})
+		return
+	}
+	if !ok {
+		writeError(w, "NOT_FOUND", "Execution not found.", map[string]any{"id": id})
+		return
+	}
+	writeJSON(w, http.StatusConflict, map[string]any{
+		"error": map[string]any{
+			"code":    "CELL_RESULTS_UNAVAILABLE",
+			"message": "No cell-level results are available for this execution.",
+			"details": map[string]any{"execution_id": ex.ID, "cell_id": cellID, "status": ex.Status},
+		},
+		"execution": ex,
+	})
+}
+
+func (h *ExecutionHandler) GetReport(w http.ResponseWriter, r *http.Request, id string) {
+	ex, ok, err := h.svc.Get(r.Context(), id)
+	if err != nil {
+		writeError(w, "INTERNAL_ERROR", "Failed to retrieve execution.", map[string]any{"id": id, "error": err.Error()})
+		return
+	}
+	if !ok {
+		writeError(w, "NOT_FOUND", "Execution not found.", map[string]any{"id": id})
+		return
+	}
+	writeJSON(w, http.StatusConflict, map[string]any{
+		"error": map[string]any{
+			"code":    "REPORT_UNAVAILABLE",
+			"message": "No report is available for this execution (no verified results).",
+			"details": map[string]any{"execution_id": ex.ID, "status": ex.Status},
+		},
+		"execution": ex,
 	})
 }
 

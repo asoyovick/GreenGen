@@ -79,7 +79,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.HTTPPort,
-		Handler:      routes.NewRouter(routes.Services{Investigations: invSvc, Executions: execSvc}),
+		Handler:      routes.NewRouter(routes.Services{Investigations: invSvc, Executions: execSvc, DB: database}),
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
 	}

@@ -41,3 +41,8 @@ frontend/.vite/
 
 # Place-selection build inputs/outputs (large/generated)
 /data/places/
+
+# Go backend build artifacts
+/backend/api
+/backend/bin/
+/backend/tmp/

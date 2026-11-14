@@ -12,11 +12,12 @@ import (
 type Services struct {
 	Investigations *service.InvestigationService
 	Executions     *service.ExecutionService
+	DB             handlers.DBPinger
 }
 
 func NewRouter(svc Services) http.Handler {
 	mux := http.NewServeMux()
-	health := handlers.NewHealthHandler()
+	health := handlers.NewHealthHandler(svc.DB)
 	inv := handlers.NewInvestigationHandler(svc.Investigations)
 	exec := handlers.NewExecutionHandler(svc.Executions)
 
@@ -41,17 +42,15 @@ func NewRouter(svc Services) http.Handler {
 		exec.RefreshExecution(w, r, strings.TrimSpace(r.PathValue("id")))
 	})
 
-	// Draft endpoints (not yet fully implemented) - explicit responses, no fabricated results.
-	notImplemented := func(msg string) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusNotImplemented)
-			_, _ = w.Write([]byte(`{"error":{"code":"NOT_IMPLEMENTED","message":"` + msg + `"}}`))
-		}
-	}
-	mux.HandleFunc("GET /api/v1/executions/{id}/summary", notImplemented("Execution summary is not implemented yet (depends on analysis results)."))
-	mux.HandleFunc("GET /api/v1/executions/{id}/cells/{cellId}", notImplemented("Cell-level results retrieval is not implemented yet."))
-	mux.HandleFunc("GET /api/v1/executions/{id}/report", notImplemented("Execution report retrieval is not implemented yet."))
+	mux.HandleFunc("GET /api/v1/executions/{id}/summary", func(w http.ResponseWriter, r *http.Request) {
+		exec.GetSummary(w, r, strings.TrimSpace(r.PathValue("id")))
+	})
+	mux.HandleFunc("GET /api/v1/executions/{id}/cells/{cellId}", func(w http.ResponseWriter, r *http.Request) {
+		exec.GetCell(w, r, strings.TrimSpace(r.PathValue("id")), strings.TrimSpace(r.PathValue("cellId")))
+	})
+	mux.HandleFunc("GET /api/v1/executions/{id}/report", func(w http.ResponseWriter, r *http.Request) {
+		exec.GetReport(w, r, strings.TrimSpace(r.PathValue("id")))
+	})
 
 	return middleware.Chain(mux,
 		middleware.Recover,

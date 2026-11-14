@@ -3,7 +3,7 @@
 **Issue:** #003 Define the initial database schema  
 **Status:** Draft (for team review)  
 **DB:** PostgreSQL + PostGIS  
-**Migrations:** `backend/migrations/000001_init_schema.up.sql` / `.down.sql`
+**Migrations:** `backend/migrations/000001_init_schema.up.sql` / `.down.sql`, `backend/migrations/000002_execution_idempotency.up.sql` / `.down.sql` (draft)
 
 ## Principles
 - Store investigation metadata, execution state, configurations, and **references/metadata** for scientific outputs.
@@ -44,9 +44,11 @@ State transitions must be enforced consistently by the backend/service layer.
 `grid_cell_results` captures key per-cell fields (counts, completeness, mean, trend, Sen’s slope + CI, Mann–Kendall/p-values, adjusted p-value, classification, flags/metrics JSONB). Exact scientific fields and delivery format for large grids (DB rows vs external artifact like GeoJSON/tiles/Zarr referenced by `storage_uri`) should be finalized with Members 3 and 5.
 
 ## Migrations
-- Apply: `000001_init_schema.up.sql` (enables `postgis`, `pgcrypto`).
-- Rollback: `000001_init_schema.down.sql`.
-- Use a migration tool adopted by the project (e.g. `golang-migrate`, `goose`) in implementation; files are provided in compatible plain-SQL form.
+- Apply: `000001_init_schema.up.sql` (enables `postgis`, `pgcrypto`, seeds INV-001), then `000002_execution_idempotency.up.sql` (draft idempotency key/index for executions).
+- Rollback: corresponding `.down.sql` files in reverse order.
+- Use a migration tool adopted by the project (e.g. `golang-migrate`, `goose`) or the backend's `AUTO_MIGRATE` runner; files are provided in compatible plain-SQL form.
+- **Validation note:** schema requires PostgreSQL+PostGIS; apply/verify in a PostGIS-enabled environment.
+
 
 ## Open items / team review needed
 - Confirm execution/job state enum values and allowed transitions with frontend/integration needs.
