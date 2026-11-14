@@ -8,9 +8,8 @@ async function showHealthBanner() {
   try {
     const health = await getApiHealth();
     if (health?.synthetic) {
-      el.hidden = false;
-      el.className = "banner";
-      el.innerHTML = `<strong>Synthetic/precomputed demo data:</strong> ${health.synthetic_banner || "Results shown are from precomputed demo layers, not live investigation executions."}`;
+      // No synthetic data is used.
+      el.hidden = true;
     } else if (health?.status && health.status !== "ok") {
       el.hidden = false;
       el.className = "banner";

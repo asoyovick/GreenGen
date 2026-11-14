@@ -1,5 +1,5 @@
-# Application-wide settings. All variables share this grid and period.
-mode: synthetic            # "synthetic" or "real"; never mix both in one layer set
+# Application-wide settings. No synthetic data is used.
+mode: real
 grid:
   resolution_deg: 0.5
   # Web Mercator clip used for the map overlays
@@ -18,8 +18,6 @@ analysis:
 paths:
   data_raw: data/raw
   data_cache: data/cache
-  synthetic: data/synthetic
-  layers_synthetic: layers/synthetic
   layers_real: layers/real
   overlays: layers/overlays
 
@@ -48,26 +46,6 @@ variables:
     surface: [land]
     model_based: false
     short_description: Monthly anomaly in total land water storage (coarse resolution).
-
-synthetic:
-  variables: [precipitation, vegetation, temperature]
-  planted_trends:
-    precipitation:
-      increasing_box: {lat: [45, 60], lon: [40, 70]}
-      decreasing_box: {lat: [45, 60], lon: [70, 100]}
-      rate_per_year: 0.25      # mm/month per year
-    vegetation:
-      increasing_box: {lat: [45, 60], lon: [40, 70]}
-      decreasing_box: {lat: [45, 60], lon: [70, 100]}
-      rate_per_year: 0.004     # NDVI per year
-    temperature:
-      increasing_box: {lat: [45, 90], lon: [-180, 180]}
-      decreasing_box: null
-      rate_per_year: 0.06      # degC per year
-  noise:
-    precipitation: 5.0
-    vegetation: 0.03
-    temperature: 0.8
 
 real:
   variables: [precipitation, vegetation, temperature, water_storage]

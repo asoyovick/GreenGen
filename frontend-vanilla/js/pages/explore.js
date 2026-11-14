@@ -154,7 +154,12 @@ async function renderTimeseries(lat, lon, variable) {
     const datasets = [{ label: ts.variable || variable, data: values, borderColor: "#0f766e", backgroundColor: "rgba(15,118,110,0.15)", tension: 0.15, spanGaps: false }];
     if (trend.some((v) => v != null)) datasets.push({ label: "Trend (backend-provided)", data: trend, borderColor: "#b42318", pointRadius: 0, borderDash: [6,4], tension: 0 });
     chart = new Chart(ctx, { type: "line", data: { labels, datasets }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false }, plugins: { legend: { display: true } }, scales: { x: { title: { display: true, text: "Time" } }, y: { title: { display: true, text: ts.units || ts.unit || "Value" } } } } });
-    meta.textContent = [ts.units ? `Units: ${ts.units}` : null, ts.period ? `Period: ${Array.isArray(ts.period)?ts.period.join("–"):ts.period}` : null, ts.note || ts.synthetic ? "Prototype/precomputed data where indicated." : null].filter(Boolean).join(" • ");
+    if (ts?.synthetic) {
+      state.hidden = false; wrap.hidden = true;
+      state.textContent = "Synthetic data is not used. No time-series data available.";
+      return;
+    }
+    meta.textContent = [ts.units ? `Units: ${ts.units}` : null, ts.period ? `Period: ${Array.isArray(ts.period)?ts.period.join("–"):ts.period}` : null, ts.note || null].filter(Boolean).join(" • ");
   } catch (err) {
     state.hidden = false; wrap.hidden = true;
     state.className = "chart-error";

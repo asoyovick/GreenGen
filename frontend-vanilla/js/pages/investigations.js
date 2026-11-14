@@ -28,7 +28,7 @@ function renderCard(inv) {
       el("dt", { text: "Geographical coverage" }), el("dd", { text: typeof spatial === "string" ? spatial : (spatial ? JSON.stringify(spatial) : "—") }),
       el("dt", { text: "Historical coverage" }), el("dd", { text: Array.isArray(temporal) ? temporal.join(" to ") : (typeof temporal === "string" ? temporal : (temporal ? JSON.stringify(temporal) : "—")) }),
     ]),
-    inv.synthetic ? el("p", { class: "field-hint warning-text", text: "Label: synthetic/precomputed prototype data." }) : null,
+    inv.synthetic ? el("p", { class: "field-hint warning-text", text: "Unavailable: synthetic data is not used." }) : null,
     el("div", { class: "inline-actions" }, [
       el("a", { class: "btn btn-secondary", href: detailsHref, text: "View details" }),
       canExecute ? el("a", { class: "btn btn-primary", href: `./explore.html?investigation=${encodeURIComponent(id ?? "")}`, text: "Configure" }) : el("button", { class: "btn btn-secondary", disabled: true, type: "button", text: "Execution unavailable" }),

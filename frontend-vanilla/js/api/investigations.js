@@ -27,20 +27,19 @@ export async function listInvestigations(opts = {}) {
     get(withPrefix(config.apiPrefix, "/variables"), opts).catch(() => null),
   ]);
   const vars = variables?.variables || variables || [];
-  const mode = health?.mode || (health?.synthetic ? "synthetic" : "unknown");
+  const mode = health?.mode || "unknown";
   return {
     source: "prototype",
-    note: "Investigation management API is not available; showing available precomputed variables from the current prototype.",
-    investigations: Array.isArray(vars) ? vars.map((v) => ({
+    note: "Investigation management API is not available; showing available variables from the current prototype (no synthetic data used).",
+    investigations: Array.isArray(vars) ? vars.filter(v => !(v.synthetic || health?.synthetic)).map((v) => ({
       id: v.key || v.id || v.name,
       title: v.display_name || v.name || v.key,
       question: v.description || "How has this variable changed over time in the selected area?",
       variables: [v.key || v.id].filter(Boolean),
-      dataset: { name: v.dataset || v.short_name || v.source || "Precomputed dataset", model_based: !!v.model_based },
+      dataset: { name: v.dataset || v.short_name || v.source || "Dataset", model_based: !!v.model_based },
       coverage: { spatial: v.surface || null, temporal: v.period || health?.period || null },
       availability: "available_precomputed",
       units: v.units || v.units_out || null,
-      synthetic: !!(v.synthetic || health?.synthetic),
       mode,
     })) : [],
   };

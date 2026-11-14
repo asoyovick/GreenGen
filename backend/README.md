@@ -45,7 +45,6 @@ Environment variables (see repository `.env.example`):
 - `HTTP_READ_TIMEOUT`, `HTTP_WRITE_TIMEOUT`, `HTTP_SHUTDOWN_TIMEOUT`, `REQUEST_TIMEOUT` (seconds or duration)
 - `PYTHON_ENGINE_URL`, `PYTHON_ENGINE_TIMEOUT` (engine integration, draft)
 - `CORS_ALLOWED_ORIGINS` (comma-separated)
-- `ALLOW_PLANNED_EXECUTIONS` (`true` enables dev/test-only execution submission for `planned` investigations; does not produce real/NASA results and does not bypass verified result ingestion requirements)
 
 ## Run locally
 ```bash
@@ -76,13 +75,13 @@ DATABASE_URL='postgres://user:pass@localhost:5432/greengen?sslmode=disable' AUTO
 - `000002_execution_idempotency.up.sql` / `.down.sql` — draft idempotency key
 Apply with your preferred tool or `AUTO_MIGRATE=true`. Review `backend/docs/DATABASE_SCHEMA.md` before applying in shared environments.
 
-## Local integration stack (dev/test)
+## Local integration stack
 ```bash
 docker compose up --build
-# backend: http://localhost:8080, mock engine (synthetic): http://localhost:8090, PostGIS: localhost:5432
+# backend: http://localhost:8080, PostGIS: localhost:5432
 # serve frontend: python -m http.server 5174 -d frontend-vanilla
 ```
-Mock engine returns **SYNTHETIC/UNVERIFIED** test data only (not NASA observations).
+Configure `PYTHON_ENGINE_URL` to point to a real, contract-compliant Python scientific engine when available. No synthetic data is used.
 
 ## Testing
 ```bash
@@ -91,7 +90,7 @@ go test ./...
 ```
 Current automated coverage includes config, service validation/execution behavior, repository in-memory execution store, and handler/API integration tests (httptest). DB/PostGIS and engine contract integration tests require appropriate environments and finalized contracts.
 
-Synthetic E2E workflow (mock engine + backend with `ALLOW_PLANNED_EXECUTIONS=true`) validates submit → queued → refresh/status sync → ingested synthetic-labelled results/summary/cells/report. Real NASA/scientific finalization requires verified data/engine outputs and team-agreed contracts.
+Real NASA/scientific finalization requires verified GPM IMERG data access/retrieval, a contract-compliant Python scientific engine, verified result ingestion, and team-agreed contracts. No synthetic data is used.
 
 ## Notes
 - Scientific calculations are performed by the Python scientific engine/service (not reimplemented in Go).

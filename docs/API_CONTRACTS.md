@@ -3,7 +3,8 @@
 **Purpose:** Record cross-team interfaces for frontend, Go backend, Python scientific engine, and data integration (issue #026).  
 **Status:** **Backend-finalized draft (v0.2, implementation-aligned)** — reflects the current Go backend implementation in `backend/` for team review/final sign-off. Items dependent on real NASA data, the scientific engine, and team decisions remain draft/TBD. Breaking changes must be versioned and communicated.
 
-> **Scientific integrity:** Go backend does not perform scientific calculations and does not fabricate NASA observations or scientific results. `completed`/results/summary/cells/report are only valid when backed by verified engine outputs and agreed ingestion rules. Synthetic/mock data must be clearly labelled and never treated as NASA results.
+> **Scientific integrity:** Go backend does not perform scientific calculations and does not fabricate NASA observations or scientific results. `completed`/results/summary/cells/report are only valid when backed by verified engine outputs and agreed ingestion rules. **No synthetic data is used.**
+
 
 
 ## 1. Versioning and conventions
@@ -14,7 +15,7 @@
 - **Time:** ISO 8601 dates/timestamps (UTC where applicable). Periods expressed as inclusive bounds or explicit start/end with documented convention.
 - **Units:** always explicit in metadata and/or fields (never implied).
 - **Errors:** consistent machine-readable error object (see §4.4).
-- **Synthetic data:** permitted only in clearly labelled tests/fixtures; never in real investigation results.
+- **Synthetic data:** not used. All investigation data/results must come from verified, contract-compliant sources (real NASA observations and agreed scientific processing).
 
 ## 2. Observation handoff contract (Data integration → Scientific engine)
 **Owners:** Member 2 & 3 (finalize in #031). **Record details also in:** `docs/DATA_SOURCES.md`.
@@ -118,7 +119,7 @@ Per-cell results must support all MVP measurements:
 - `POST /api/v1/executions/validate` — draft validation
   - Request: `{"investigation_id":"INV-001","bounds":{"min_lon","min_lat","max_lon","max_lat"},"period":{"start":"YYYY-MM-DD","end":"YYYY-MM-DD"},"options"?:{}}`
   - Response: `200 {"valid":true, ...}` or `422 {"valid":false,"issues":[{"field","issue"}],"error":{"code":"VALIDATION_ERROR",...}}`
-  - Enforces shape/range/order, availability status, and draft investigation-scoped suggested bounds/period when present. `ALLOW_PLANNED_EXECUTIONS=true` is a **dev/test-only** flag (does not imply real data/results).
+  - Enforces shape/range/order, availability status, and draft investigation-scoped suggested bounds/period when present. Only investigations with `availability_status=available` can be executed. No synthetic data is used.
 
 ### 4.3 Executions
 - `POST /api/v1/executions` — submit (validated)
@@ -130,17 +131,17 @@ Per-cell results must support all MVP measurements:
 - `POST /api/v1/executions/{id}/refresh` → `200 {"execution": {...}, "message": "..."}` or `404` (best-effort engine status sync; **completed not auto-applied without verified result ingestion**)
 
 ### 4.4 Results and reports (implemented draft, integrity-preserving)
-- `GET /api/v1/executions/{id}/results` → `200` with stored result payload/provenance when ingested, else `409 {"error":{"code":"RESULTS_UNAVAILABLE",...},"execution":{...}}` or `404`
+- `GET /api/v1/executions/{id}/results` → `200` with stored result payload/provenance when verified results are ingested, else `409 {"error":{"code":"RESULTS_UNAVAILABLE",...},"execution":{...}}` or `404`
 - `GET /api/v1/executions/{id}/summary` → `200` with derived summary/provenance when results ingested, else `409 SUMMARY_UNAVAILABLE` or `404`
 - `GET /api/v1/executions/{id}/cells/{cellId}` → `200` with matched cell/provenance when present, `404` if cell missing in ingested results, or `409 CELL_RESULTS_UNAVAILABLE` if no results ingested
 - `GET /api/v1/executions/{id}/report` → `200` with draft JSON report/provenance when results ingested, else `409 REPORT_UNAVAILABLE` or `404`
-- **Provenance/integrity:** ingested results include `provenance` and `synthetic` flags. Synthetic/mock or unverified test data is returned with explicit warnings and must never be presented as NASA observations/real scientific results. Final payload formats (grid/GeoJSON/tiles, full time series, export formats) remain subject to team agreement (#041/#043/#046/#048).
+- **Provenance/integrity:** no synthetic data is used. Synthetic results (if provided by any source) are rejected and not ingested/served. Ingested results must be from verified, contract-compliant sources; final payload formats (grid/GeoJSON/tiles, full time series, export formats) remain subject to team agreement (#041/#043/#046/#048).
 
 ### 4.5 Execution statuses (implemented)
 `pending | queued | running | completed | failed`.
 - Submission without engine → `failed` (`ENGINE_UNAVAILABLE`); engine submit accepted → `queued`.
-- Refresh performs best-effort engine sync for non-terminal states. `completed` is set when results are ingested/persisted (with provenance/synthetic labelling as applicable); auto-completion without ingested results is not performed.
-- **Real-science finalization:** for production NASA analyses, ingestion must enforce verified provenance and agreed scientific output contracts before serving as finalized scientific results.
+- Refresh performs best-effort engine sync for non-terminal states. `completed` is set only when verified, non-synthetic results are ingested/persisted; auto-completion without ingested results is not performed. Synthetic results are rejected (`SYNTHETIC_DATA_REJECTED`) and not used.
+- **Real-science finalization:** ingestion must enforce verified provenance and agreed scientific output contracts before serving as finalized scientific results. No synthetic data is used.
 
 
 ### 4.3 Legend/classification semantics (frontend-backend-engine alignment)

@@ -13,17 +13,6 @@ services:
       timeout: 5s
       retries: 20
 
-  mock-engine:
-    image: python:3.11-slim
-    working_dir: /app
-    volumes:
-      - ./:/app
-    command: ["python", "scripts/mock_engine.py"]
-    environment:
-      MOCK_ENGINE_PORT: "8090"
-    ports:
-      - "8090:8090"
-
   backend:
     image: golang:1.22-alpine
     working_dir: /app/backend
@@ -35,16 +24,15 @@ services:
       DATABASE_URL: postgres://greengen:greengen@db:5432/greengen?sslmode=disable
       AUTO_MIGRATE: "true"
       MIGRATIONS_PATH: ./migrations
-      PYTHON_ENGINE_URL: http://mock-engine:8090
-      ALLOW_PLANNED_EXECUTIONS: "true"
+      PYTHON_ENGINE_URL: ${PYTHON_ENGINE_URL:-}
       CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174
     ports:
       - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
-      mock-engine:
-        condition: service_started
 
   # Frontend is vanilla static files; serve with any static server, e.g.:
   # python -m http.server 5174 -d frontend-vanilla
+  # Configure a real Python scientific engine via PYTHON_ENGINE_URL when available.
+  # No synthetic data is used.

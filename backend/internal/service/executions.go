@@ -174,24 +174,30 @@ func (s *ExecutionService) Refresh(ctx context.Context, id string) (domain.Inves
 		return ex, true, nil // keep current state; sync best-effort
 	}
 	mapped, ok := mapEngineStatus(st)
-	// Result ingestion (draft): if engine provides results, store them with provenance.
-	// Synthetic/unverified results must be clearly labelled and must not be presented as real NASA observations.
+	// Result ingestion: only accept verified, non-synthetic scientific results from the agreed engine/data pipeline.
+	// Synthetic data must not be used.
 	if len(results) > 0 {
-		synthetic, _ := results["synthetic"].(bool)
-		prov := map[string]any{"source": "engine", "synthetic": synthetic}
-		if synthetic {
-			prov["warning"] = "SYNTHETIC/UNVERIFIED TEST DATA - not NASA observations and not real scientific results"
+		if synthetic, _ := results["synthetic"].(bool); synthetic {
+			_ = s.store.UpdateStatus(ctx, id, domain.ExecutionFailed, "SYNTHETIC_DATA_REJECTED", "Synthetic data is not permitted. No results were ingested.", "")
+			if updated, ok, _ := s.store.Get(ctx, id); ok {
+				return updated, true, nil
+			}
+			ex.Status = domain.ExecutionFailed
+			ex.ErrorCode = "SYNTHETIC_DATA_REJECTED"
+			ex.ErrorMessage = "Synthetic data is not permitted. No results were ingested."
+			return ex, true, nil
 		}
+		prov := map[string]any{"source": "engine", "synthetic": false}
 		_ = s.store.SaveResult(ctx, domain.ExecutionResult{
 			ExecutionID: id,
 			Status:      "available",
 			Raw:         results,
 			Provenance:  prov,
-			Synthetic:   synthetic,
+			Synthetic:   false,
 			Summary:     map[string]any{},
 		})
 		// If results are ingested and engine reports completed, mark completed.
-		// NOTE: for real NASA results, verified ingestion/provenance rules must be enforced per agreed contracts.
+		// NOTE: real NASA results must satisfy verified ingestion/provenance rules per agreed contracts.
 		if mapped == domain.ExecutionCompleted || strings.EqualFold(strings.TrimSpace(st), "completed") {
 			_ = s.store.UpdateStatus(ctx, id, domain.ExecutionCompleted, "", "", "")
 			if updated, ok, _ := s.store.Get(ctx, id); ok {
