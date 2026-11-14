@@ -53,6 +53,7 @@ type ExecutionRequest struct {
 	Bounds          *Bounds        `json:"bounds,omitempty"`
 	Period          *Period        `json:"period,omitempty"`
 	Options         map[string]any `json:"options,omitempty"`
+	IdempotencyKey  string         `json:"idempotency_key,omitempty"`
 }
 
 type ValidationIssue struct {

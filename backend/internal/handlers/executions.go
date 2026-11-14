@@ -23,6 +23,12 @@ func (h *ExecutionHandler) SubmitExecution(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	req.InvestigationID = strings.TrimSpace(req.InvestigationID)
+	if req.IdempotencyKey == "" {
+		req.IdempotencyKey = strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	}
+	if req.IdempotencyKey == "" {
+		req.IdempotencyKey = strings.TrimSpace(r.Header.Get("X-Idempotency-Key"))
+	}
 	res, issues, err := h.svc.Submit(r.Context(), req)
 	if err != nil {
 		writeError(w, "INTERNAL_ERROR", "Failed to submit execution.", map[string]any{"error": err.Error()})

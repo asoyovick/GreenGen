@@ -16,6 +16,7 @@ type ExecutionStore interface {
 	Available() bool
 	Create(ctx context.Context, ex domain.InvestigationExecution, job *domain.Job, requestPayload any) (domain.InvestigationExecution, error)
 	Get(ctx context.Context, id string) (domain.InvestigationExecution, bool, error)
+	GetByIdempotencyKey(ctx context.Context, key string) (domain.InvestigationExecution, bool, error)
 	UpdateStatus(ctx context.Context, id string, status domain.ExecutionStatus, errCode, errMsg, engineJobRef string) error
 }
 
@@ -75,6 +76,11 @@ VALUES ($1::uuid,$2,$3,0,1,$4::jsonb,$5,$6,NOW(),NOW())
 	ex.RequestedAt = requestedAt
 	ex.UpdatedAt = updatedAt
 	return ex, nil
+}
+
+func (s *DBExecutionStore) GetByIdempotencyKey(context.Context, string) (domain.InvestigationExecution, bool, error) {
+	// Idempotency persistence requires schema support (e.g. executions.idempotency_key). Not yet implemented.
+	return domain.InvestigationExecution{}, false, nil
 }
 
 func (s *DBExecutionStore) Get(ctx context.Context, id string) (domain.InvestigationExecution, bool, error) {
@@ -154,26 +160,38 @@ WHERE investigation_execution_id::text=$1
 }
 
 type MemoryExecutionStore struct {
-	mu    sync.RWMutex
-	items map[string]domain.InvestigationExecution
-	seq   int
+	mu          sync.RWMutex
+	items       map[string]domain.InvestigationExecution
+	idempotency map[string]string // key -> execution id
+	seq         int
 }
 
 func NewMemoryExecutionStore() *MemoryExecutionStore {
-	return &MemoryExecutionStore{items: map[string]domain.InvestigationExecution{}}
+	return &MemoryExecutionStore{items: map[string]domain.InvestigationExecution{}, idempotency: map[string]string{}}
 }
 
 func (s *MemoryExecutionStore) Available() bool { return s != nil }
 
-func (s *MemoryExecutionStore) Create(_ context.Context, ex domain.InvestigationExecution, _ *domain.Job, _ any) (domain.InvestigationExecution, error) {
+func (s *MemoryExecutionStore) Create(_ context.Context, ex domain.InvestigationExecution, _ *domain.Job, requestPayload any) (domain.InvestigationExecution, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	key := extractIdempotencyKey(requestPayload)
+	if key != "" {
+		if id, ok := s.idempotency[key]; ok {
+			if existing, ok := s.items[id]; ok {
+				return existing, nil
+			}
+		}
+	}
 	s.seq++
 	ex.ID = fmt.Sprintf("exec-%d", s.seq)
 	now := time.Now().UTC()
 	ex.RequestedAt = now
 	ex.UpdatedAt = now
 	s.items[ex.ID] = ex
+	if key != "" {
+		s.idempotency[key] = ex.ID
+	}
 	return ex, nil
 }
 
@@ -181,6 +199,21 @@ func (s *MemoryExecutionStore) Get(_ context.Context, id string) (domain.Investi
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	ex, ok := s.items[id]
+	return ex, ok, nil
+}
+
+func (s *MemoryExecutionStore) GetByIdempotencyKey(_ context.Context, key string) (domain.InvestigationExecution, bool, error) {
+	if key == "" {
+		return domain.InvestigationExecution{}, false, nil
+	}
+	s.mu.RLock()
+	id, ok := s.idempotency[key]
+	if !ok {
+		s.mu.RUnlock()
+		return domain.InvestigationExecution{}, false, nil
+	}
+	ex, ok := s.items[id]
+	s.mu.RUnlock()
 	return ex, ok, nil
 }
 
@@ -218,4 +251,17 @@ func ptrString(p *string) string {
 		return ""
 	}
 	return *p
+}
+
+func extractIdempotencyKey(payload any) string {
+	m, ok := payload.(map[string]any)
+	if !ok {
+		return ""
+	}
+	for _, k := range []string{"idempotency_key", "idempotencyKey"} {
+		if v, ok := m[k].(string); ok && v != "" {
+			return v
+		}
+	}
+	return ""
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/asoyovick/GreenGen/backend/internal/domain"
 	"github.com/asoyovick/GreenGen/backend/internal/repository"
@@ -14,13 +15,14 @@ type Engine interface {
 }
 
 type ExecutionService struct {
-	inv    *InvestigationService
-	store  repository.ExecutionStore
-	engine Engine
+	inv           *InvestigationService
+	store         repository.ExecutionStore
+	engine        Engine
+	EngineTimeout time.Duration
 }
 
 func NewExecutionService(inv *InvestigationService, store repository.ExecutionStore, engine Engine) *ExecutionService {
-	return &ExecutionService{inv: inv, store: store, engine: engine}
+	return &ExecutionService{inv: inv, store: store, engine: engine, EngineTimeout: 120 * 1e9}
 }
 
 type SubmitExecutionResult struct {
@@ -36,6 +38,11 @@ func (s *ExecutionService) Submit(ctx context.Context, req ExecutionRequest) (Su
 	}
 	if s.store == nil || !s.store.Available() {
 		return SubmitExecutionResult{}, []ValidationIssue{{Field: "execution", Issue: "execution store unavailable"}}, nil
+	}
+	if key := strings.TrimSpace(req.IdempotencyKey); key != "" {
+		if existing, ok, _ := s.store.GetByIdempotencyKey(ctx, key); ok {
+			return SubmitExecutionResult{Execution: existing, Accepted: true, Message: "Idempotent replay: existing execution returned."}, nil, nil
+		}
 	}
 
 	ex := domain.InvestigationExecution{
@@ -69,7 +76,13 @@ func (s *ExecutionService) Submit(ctx context.Context, req ExecutionRequest) (Su
 
 	// Attempt engine submission if configured and execution is pending (not pre-failed)
 	if s.engine != nil && created.Status == domain.ExecutionPending {
-		engineJobRef, engStatus, engErr := s.engine.Submit(ctx, created.ID, strings.TrimSpace(req.InvestigationID), req, inv.Dataset)
+		submitCtx := ctx
+		cancel := func() {}
+		if s.EngineTimeout > 0 {
+			submitCtx, cancel = context.WithTimeout(ctx, s.EngineTimeout)
+		}
+		engineJobRef, engStatus, engErr := s.engine.Submit(submitCtx, created.ID, strings.TrimSpace(req.InvestigationID), req, inv.Dataset)
+		cancel()
 		if engErr != nil {
 			_ = s.store.UpdateStatus(ctx, created.ID, domain.ExecutionFailed, "ENGINE_SUBMISSION_FAILED", fmt.Sprintf("Engine submission failed: %v. No scientific results were generated.", engErr), "")
 			if updated, ok, _ := s.store.Get(ctx, created.ID); ok {
