@@ -570,23 +570,31 @@ GreenGen is an environmental change detection platform, not a climate attributio
 
 ## 15. Contributors
 
-GreenGen is being developed collaboratively by a team of six contributors working remotely.
+GreenGen is built by a team of six contributors collaborating remotely as part of the NASA Space Apps Challenge 2026.
 
-Each contributor owns a major workstream while collaborating with the rest of the team through GitHub issues, branches, pull requests, and reviews.
+Each contributor is responsible for their assigned workstream and contributes to the project's development, testing, and improvement.
 
-| Contributor | GitHub | Responsibility |
+### Development Team
+
+| Name | GitHub Username | Responsibility |
 |---|---|---|
-| Contributor 1 | [GitHub profile](GITHUB_PROFILE_1) | Product coordination, scientific requirements, and integration. |
-| Contributor 2 | [GitHub profile](GITHUB_PROFILE_2) | NASA data acquisition, processing, and quality assessment. |
-| Contributor 3 | [GitHub profile](GITHUB_PROFILE_3) | Statistical methodology and grid-level scientific analysis. |
-| Contributor 4 | [GitHub profile](GITHUB_PROFILE_4) | Backend development, APIs, and system integration. |
-| Contributor 5 | [GitHub profile](GITHUB_PROFILE_5) | Frontend development and geospatial visualization. |
-| Contributor 6 | [GitHub profile](GITHUB_PROFILE_6) | Testing, scientific validation, and documentation. |
+| Victor Oumad | asoyovick | Product coordination and integration |
+| To be added | To be added | NASA data acquisition and processing |
+| To be added | To be added | Scientific analysis and grid-level statistics |
+| To be added | To be added | Backend development and API integration |
+| To be added | To be added | Frontend development and geospatial visualization |
+| To be added | To be added | Testing, scientific validation and documentation |
 
-**Note:** Replace the contributor placeholders with the actual names and GitHub usernames before publishing the final README.
+### How to Add Yourself
 
-All contributors are expected to participate in code reviews, communicate implementation decisions, and help integrate the different components.
+Each team member should:
 
+1. Fork or clone the repository.
+2. Add their name and GitHub username to the contributors table.
+3. Keep the assigned responsibility unchanged unless the team agrees otherwise.
+4. Submit a pull request for review.
+
+**We believe in collaborative development, shared ownership, and building solutions through teamwork.**
 ---
 
 ## 16. Contributing
