@@ -580,6 +580,7 @@ Each contributor is responsible for their assigned workstream and contributes to
 |---|---|---|
 | Victor Oumad | asoyovick | Product coordination and integration |
 | Hellen Onyango |hellonyango | NASA data acquisition and processing |
+| miriam chemeres | mchemere| NASA data acquisition and processing |
 | To be added | To be added | Scientific analysis and grid-level statistics |
 | To be added | To be added | Backend development and API integration |
 | To be added | To be added | Frontend development and geospatial visualization |
