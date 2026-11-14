@@ -14,6 +14,7 @@ type fakeEngine struct {
 	status    string
 	errCode   string
 	errMsg    string
+	results   map[string]any
 }
 
 func (f fakeEngine) Submit(context.Context, string, string, ExecutionRequest, map[string]any) (string, string, error) {
@@ -22,8 +23,8 @@ func (f fakeEngine) Submit(context.Context, string, string, ExecutionRequest, ma
 	}
 	return "job-1", "queued", nil
 }
-func (f fakeEngine) GetStatus(context.Context, string) (string, string, string, error) {
-	return f.status, f.errCode, f.errMsg, nil
+func (f fakeEngine) GetStatus(context.Context, string) (string, string, string, map[string]any, error) {
+	return f.status, f.errCode, f.errMsg, f.results, nil
 }
 
 type availableInvRepo struct{}
