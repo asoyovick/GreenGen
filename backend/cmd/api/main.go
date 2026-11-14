@@ -12,6 +12,7 @@ import (
 
 	"github.com/asoyovick/GreenGen/backend/internal/config"
 	"github.com/asoyovick/GreenGen/backend/internal/db"
+	"github.com/asoyovick/GreenGen/backend/internal/engine"
 	"github.com/asoyovick/GreenGen/backend/internal/repository"
 	"github.com/asoyovick/GreenGen/backend/internal/routes"
 	"github.com/asoyovick/GreenGen/backend/internal/service"
@@ -67,7 +68,14 @@ func main() {
 		execStore = repository.NewMemoryExecutionStore()
 	}
 	invSvc := service.NewInvestigationService(invRepo)
-	execSvc := service.NewExecutionService(invSvc, execStore)
+	var eng service.Engine
+	if cfg.PythonEngineURL != "" {
+		eng = engine.ServiceAdapter{Client: engine.NewHTTPClient(cfg.PythonEngineURL, cfg.PythonEngineTimeout)}
+		log.Printf("python engine client configured: %s", cfg.PythonEngineURL)
+	} else {
+		log.Printf("python engine not configured; executions requiring engine will fail explicitly (no fabricated results)")
+	}
+	execSvc := service.NewExecutionService(invSvc, execStore, eng)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.HTTPPort,

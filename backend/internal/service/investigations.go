@@ -62,6 +62,38 @@ type ValidationIssue struct {
 
 var dateRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
+func toFloat(v any) (float64, bool) {
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case int:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	}
+	return 0, false
+}
+
+func toBounds(m map[string]any) (Bounds, bool) {
+	minLon, a := toFloat(m["min_lon"])
+	minLat, b := toFloat(m["min_lat"])
+	maxLon, c := toFloat(m["max_lon"])
+	maxLat, d := toFloat(m["max_lat"])
+	if !(a && b && c && d) {
+		return Bounds{}, false
+	}
+	return Bounds{MinLon: minLon, MinLat: minLat, MaxLon: maxLon, MaxLat: maxLat}, true
+}
+
+func toPeriod(m map[string]any) (Period, bool) {
+	s, _ := m["start"].(string)
+	e, _ := m["end"].(string)
+	if s == "" || e == "" {
+		return Period{}, false
+	}
+	return Period{Start: s, End: e}, true
+}
+
 func (s *InvestigationService) ValidateExecutionRequest(ctx context.Context, req ExecutionRequest) ([]ValidationIssue, *domain.Investigation) {
 	var issues []ValidationIssue
 	if strings.TrimSpace(req.InvestigationID) == "" {
@@ -85,6 +117,14 @@ func (s *InvestigationService) ValidateExecutionRequest(ctx context.Context, req
 		if req.Bounds.MinLat < -90 || req.Bounds.MaxLat > 90 || req.Bounds.MinLat > req.Bounds.MaxLat {
 			issues = append(issues, ValidationIssue{Field: "bounds", Issue: "invalid latitude range"})
 		}
+		// Draft investigation-scoped constraint checks (when metadata provides suggested bounds)
+		if sg, ok := inv.SupportedGeographical["suggested_bounds"].(map[string]any); ok {
+			if sb, ok2 := toBounds(sg); ok2 {
+				if req.Bounds.MinLon < sb.MinLon || req.Bounds.MinLat < sb.MinLat || req.Bounds.MaxLon > sb.MaxLon || req.Bounds.MaxLat > sb.MaxLat {
+					issues = append(issues, ValidationIssue{Field: "bounds", Issue: "outside supported investigation bounds (draft constraints)"})
+				}
+			}
+		}
 	}
 	if req.Period == nil {
 		issues = append(issues, ValidationIssue{Field: "period", Issue: "required"})
@@ -100,6 +140,17 @@ func (s *InvestigationService) ValidateExecutionRequest(ctx context.Context, req
 			end, _ := time.Parse("2006-01-02", req.Period.End)
 			if start.After(end) {
 				issues = append(issues, ValidationIssue{Field: "period", Issue: "start must be <= end"})
+			}
+			if st, ok := inv.SupportedTemporal["suggested_period"].(map[string]any); ok {
+				if sp, ok2 := toPeriod(st); ok2 {
+					ps, e1 := time.Parse("2006-01-02", sp.Start)
+					pe, e2 := time.Parse("2006-01-02", sp.End)
+					if e1 == nil && e2 == nil {
+						if start.Before(ps) || end.After(pe) {
+							issues = append(issues, ValidationIssue{Field: "period", Issue: "outside supported investigation period (draft constraints)"})
+						}
+					}
+				}
 			}
 		}
 	}

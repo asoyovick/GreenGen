@@ -26,11 +26,21 @@ func SeedInvestigations() []Investigation {
 				"type":  "country",
 				"name":  "Kenya",
 				"crs":   "EPSG:4326",
-				"notes": "Initial MVP focus; exact bounds/presets to be finalized.",
+				"notes": "Initial MVP focus; exact bounds/presets to be finalized with Members 1/2.",
+				"suggested_bounds": map[string]any{
+					"min_lon": 33.9, "min_lat": -4.7, "max_lon": 41.9, "max_lat": 5.5,
+					"draft": true,
+				},
 			},
 			SupportedTemporal: map[string]any{
 				"status": "to_be_finalized",
 				"notes":  "Constrained by selected GPM IMERG product coverage and validated configuration.",
+				"suggested_period": map[string]any{
+					"start": "2000-06-01",
+					"end":   "2026-12-31",
+					"draft": true,
+					"notes": "Draft placeholder; finalize against selected IMERG product/version.",
+				},
 			},
 			MethodologySummary: "Grid-level temporal aggregation and trend analysis (e.g. Mann–Kendall, Sen’s slope) with uncertainty, data quality/completeness handling, and multiple-testing considerations as defined by the agreed scientific methodology.",
 			AvailabilityStatus: "planned",
