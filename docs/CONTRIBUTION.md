@@ -256,7 +256,7 @@ The statistical methodology must be documented and reviewed before we publish re
 We will separate the application into four main components.
 
 ```text
-                  NEXT.JS FRONTEND
+                  HTML / CSS FRONTEND
                          |
                          |
                          v
@@ -285,7 +285,7 @@ We will separate the application into four main components.
                   GO BACKEND API
                          |
                          v
-                  NEXT.JS FRONTEND
+                  HTML / CSS FRONTEND
                          |
              +-----------+-----------+
              |           |           |
@@ -297,7 +297,7 @@ We will separate the application into four main components.
 
 | Component | Technology | Responsibility |
 |---|---|---|
-| Frontend | Next.js | User interface and investigation workflows. |
+| Frontend | HTML/CSS | User interface and investigation workflows. |
 | Backend | Go | Application logic, APIs and orchestration. |
 | Scientific engine | Python | Scientific data processing and statistical analysis. |
 | Database | PostgreSQL | Application and investigation records. |
