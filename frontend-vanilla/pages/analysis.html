@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="greengen-api-base" content="" />
+  <meta name="greengen-api-prefix" content="/api" />
+  <title>Analysis — GreenGen</title>
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div id="global-status" class="banner" hidden></div>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true"></span><span>GreenGen</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">Menu</button>
+      <nav id="primary-nav" class="primary-nav" aria-label="Primary">
+        <ul>
+          <li><a href="../index.html">Home</a></li>
+          <li><a href="./investigations.html">Investigations</a></li>
+          <li><a href="./explore.html">Explore</a></li>
+          <li><a href="./analysis.html">Analysis</a></li>
+          <li><a href="./reports.html">Reports</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  <main id="main" class="page-main">
+    <header class="page-hero" style="padding-top:1rem;">
+      <h1>Analysis execution and results</h1>
+      <p class="muted">Submit investigations, monitor status, and review returned scientific results. When execution APIs are unavailable, the page displays available precomputed prototype information without simulating analysis.</p>
+    </header>
+    <section class="panel stack" id="analysis-view">
+      <div id="analysis-status" class="notice notice-info" role="status">Ready. Provide an execution ID or submit an investigation from the Explore page.</div>
+      <div class="inline-actions">
+        <label for="execution-id" class="visually-hidden">Execution ID</label>
+        <input id="execution-id" type="text" placeholder="Execution ID (if available)" style="max-width:320px;padding:0.55rem 0.65rem;border:1px solid var(--color-border);border-radius:var(--radius-sm);" />
+        <button id="load-execution" class="btn btn-secondary" type="button">Load status</button>
+        <button id="refresh-execution" class="btn btn-secondary" type="button">Refresh</button>
+      </div>
+      <div id="execution-details"></div>
+      <div id="results-summary" class="section"></div>
+    </section>
+  </main>
+  <footer class="site-footer"><div class="footer-inner"><p><strong>GreenGen</strong> — Status and results are shown only as returned by the backend.</p></div></footer>
+  <script type="module" src="../js/main.js"></script>
+  <script type="module" src="../js/pages/analysis.js"></script>
+</body>
+</html>

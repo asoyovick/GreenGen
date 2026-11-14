@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="greengen-api-base" content="" />
+  <meta name="greengen-api-prefix" content="/api" />
+  <title>Investigations — GreenGen</title>
+  <link rel="stylesheet" href="../css/main.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div id="global-status" class="banner" hidden></div>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true"></span><span>GreenGen</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">Menu</button>
+      <nav id="primary-nav" class="primary-nav" aria-label="Primary">
+        <ul>
+          <li><a href="../index.html">Home</a></li>
+          <li><a href="./investigations.html">Investigations</a></li>
+          <li><a href="./explore.html">Explore</a></li>
+          <li><a href="./analysis.html">Analysis</a></li>
+          <li><a href="./reports.html">Reports</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  <main id="main" class="page-main">
+    <header class="page-hero" style="padding-top:1rem;">
+      <h1>Investigation catalogue</h1>
+      <p class="muted">Browse predefined scientific investigations. Availability and details are loaded from the backend when available; planned investigations cannot be executed.</p>
+    </header>
+    <section aria-labelledby="catalogue-heading">
+      <h2 id="catalogue-heading" class="visually-hidden">Available investigations</h2>
+      <div id="catalogue-status" class="notice notice-info" role="status">Loading investigations…</div>
+      <div id="catalogue-list" class="grid grid-2" style="margin-top:1rem;"></div>
+    </section>
+  </main>
+  <footer class="site-footer"><div class="footer-inner"><p><strong>GreenGen</strong> — Observed change exploration, not a forecast. Data attribution preserved from source metadata.</p></div></footer>
+  <script type="module" src="../js/main.js"></script>
+  <script type="module" src="../js/pages/investigations.js"></script>
+</body>
+</html>

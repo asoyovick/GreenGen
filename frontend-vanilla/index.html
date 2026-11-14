@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="GreenGen — investigate and visualize environmental changes using NASA Earth observation data." />
+  <meta name="greengen-api-base" content="" />
+  <meta name="greengen-api-prefix" content="/api" />
+  <title>GreenGen — Earth System Trend Detective</title>
+  <link rel="stylesheet" href="./css/main.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div id="global-status" class="banner" hidden></div>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true"></span><span>GreenGen</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">Menu</button>
+      <nav id="primary-nav" class="primary-nav" aria-label="Primary">
+        <ul>
+          <li><a href="./index.html">Home</a></li>
+          <li><a href="./pages/investigations.html">Investigations</a></li>
+          <li><a href="./pages/explore.html">Explore</a></li>
+          <li><a href="./pages/analysis.html">Analysis</a></li>
+          <li><a href="./pages/reports.html">Reports</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page-main">
+    <section class="page-hero">
+      <p class="badge">NASA Space Apps Challenge 2026</p>
+      <h1>Investigate real environmental change with scientific evidence</h1>
+      <p class="muted">GreenGen helps scientists, researchers, students, journalists, and educators explore Earth system trends using NASA Earth observation data — with transparent methods, uncertainty, and data-source attribution.</p>
+      <div class="inline-actions" style="margin-top:1rem;">
+        <a class="btn btn-primary" href="./pages/explore.html">Explore Environmental Changes</a>
+        <a class="btn btn-secondary" href="./pages/investigations.html">Browse Investigations</a>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>How the platform works</h2>
+      <div class="grid grid-3">
+        <article class="card"><h3>1. Select an investigation</h3><p>Choose a predefined scientific question, geographical area, and historical period supported by the dataset.</p></article>
+        <article class="card"><h3>2. Analyze observations</h3><p>The backend retrieves NASA observations and the scientific engine computes grid-level trends, magnitude, significance, and uncertainty.</p></article>
+        <article class="card"><h3>3. Explore evidence</h3><p>Inspect maps, grid cells, time series, and reports. Non-significant results are not presented as stability, and limitations remain visible.</p></article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Initial investigation</h2>
+      <div class="card">
+        <h3>Historical precipitation trends in Kenya</h3>
+        <p><strong>Scientific question:</strong> How has precipitation changed across different geographical locations in Kenya over a selected historical period, and where are those changes statistically significant?</p>
+        <dl class="dl">
+          <dt>Dataset</dt><dd>NASA GPM IMERG (product/version finalized per data integration)</dd>
+          <dt>Variables</dt><dd>Monthly, annual, and seasonal precipitation (as supported)</dd>
+          <dt>Expected outputs</dt><dd>Grid-level trend direction, Sen’s slope, significance, confidence/uncertainty, data completeness, and classifications</dd>
+        </dl>
+        <div class="inline-actions" style="margin-top:0.75rem;">
+          <a class="btn btn-secondary" href="./pages/investigation-details.html?id=INV-001">View investigation details</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Scientific methodology overview</h2>
+      <div class="grid grid-2">
+        <article class="card">
+          <h3>What we report</h3>
+          <ul>
+            <li>Trend direction and magnitude (e.g. Sen’s slope) with units</li>
+            <li>Statistical evidence (e.g. Mann–Kendall, with documented assumptions)</li>
+            <li>Uncertainty/confidence intervals and data completeness</li>
+            <li>Grid-level classifications: significant increase/decrease, no significant trend detected, insufficient data, or inconclusive</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Scientific integrity</h3>
+          <ul>
+            <li>No fabricated observations or results; synthetic fixtures are labelled and never shown as real findings</li>
+            <li>Statistical significance, magnitude, and practical importance are distinguished</li>
+            <li>Missing data is not treated as zero; uncertainty and limitations are disclosed</li>
+            <li>Trends do not imply causation</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Data-source attribution</h2>
+      <div class="notice notice-info">
+        <p><strong>NASA Earth observations.</strong> When real analyses are available, results will cite dataset name/version, retrieval details, spatial/temporal coverage, and methodology/provenance as provided by the backend. Current prototype views may use clearly labelled precomputed/synthetic demo layers when live investigation services are unavailable.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <p><strong>GreenGen</strong> — Earth System Trend Detective. Observed change exploration for research and education; not a forecast.</p>
+      <p>Data attribution: NASA Earth observation datasets (e.g. GPM IMERG) as integrated and cited by the analysis workflow. Preserve source metadata, units, and limitations in all reports.</p>
+    </div>
+  </footer>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

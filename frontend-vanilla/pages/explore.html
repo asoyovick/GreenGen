@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="greengen-api-base" content="" />
+  <meta name="greengen-api-prefix" content="/api" />
+  <title>Explore — GreenGen</title>
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div id="global-status" class="banner" hidden></div>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true"></span><span>GreenGen</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">Menu</button>
+      <nav id="primary-nav" class="primary-nav" aria-label="Primary">
+        <ul>
+          <li><a href="../index.html">Home</a></li>
+          <li><a href="./investigations.html">Investigations</a></li>
+          <li><a href="./explore.html">Explore</a></li>
+          <li><a href="./analysis.html">Analysis</a></li>
+          <li><a href="./reports.html">Reports</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  <main id="main" class="page-main">
+    <header class="page-hero" style="padding-top:1rem;">
+      <h1>Explore a location</h1>
+      <p class="muted">Select an area, choose an available variable and historical period, and explore geographical trends and cell-level evidence from backend results. Execution-based analysis uses the configured investigation API when available.</p>
+    </header>
+
+    <div class="split">
+      <section class="stack" aria-label="Map and visualization">
+        <div class="panel">
+          <div class="inline-actions" style="justify-content:space-between;">
+            <h2 style="margin:0;font-size:1.1rem;">Geographical map</h2>
+            <span id="map-mode" class="badge">Loading…</span>
+          </div>
+          <div class="map-shell" style="margin-top:0.75rem;">
+            <div id="map" class="map-canvas" aria-label="Interactive map"></div>
+            <div id="map-status" class="map-overlay map-overlay-status notice notice-info" hidden></div>
+            <div class="map-overlay map-overlay-legend" id="map-legend"></div>
+          </div>
+          <p class="map-selection-info" id="selection-info" style="margin-top:0.5rem;">No location selected. Click the map or enter coordinates to inspect available results.</p>
+        </div>
+
+        <div class="panel chart-shell">
+          <h2 style="margin:0 0 0.5rem;font-size:1.1rem;">Historical time series</h2>
+          <div id="chart-state" class="chart-empty">Select a location and variable to view time-series data from the backend.</div>
+          <div class="chart-canvas-wrap" id="chart-wrap" hidden><canvas id="timeseries-chart" aria-label="Time series chart" role="img"></canvas></div>
+          <div id="chart-meta" class="chart-meta"></div>
+        </div>
+      </section>
+
+      <aside class="stack" aria-label="Configuration and inspection">
+        <section class="panel">
+          <h2 style="margin-top:0;">Investigation configuration</h2>
+          <form id="explore-form" class="form-grid" novalidate>
+            <div class="field">
+              <label for="investigation-select">Investigation / variable</label>
+              <select id="investigation-select" name="investigation"><option value="">Loading…</option></select>
+              <p class="field-hint" id="variable-hint">Options are determined by backend capabilities.</p>
+            </div>
+            <div class="field">
+              <label for="region-select">Geographical selection</label>
+              <select id="region-select" name="region">
+                <option value="">Select a supported region (if available)</option>
+                <option value="kenya">Kenya (default focus)</option>
+                <option value="custom">Custom map point/area</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="start-date">Historical start date</label>
+              <input id="start-date" name="start" type="date" />
+            </div>
+            <div class="field">
+              <label for="end-date">Historical end date</label>
+              <input id="end-date" name="end" type="date" />
+              <p class="field-hint" id="period-hint">Date range must be valid and within dataset temporal coverage.</p>
+            </div>
+            <div id="form-errors" class="field-error" role="alert"></div>
+            <div class="inline-actions">
+              <button type="submit" class="btn btn-primary" id="run-btn">Submit investigation</button>
+              <button type="button" class="btn btn-secondary" id="clear-btn">Clear selection</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel" aria-live="polite">
+          <h2 style="margin-top:0;">Execution status</h2>
+          <div id="execution-status" class="notice notice-info">Ready. Configure and submit an investigation, or inspect precomputed results if available.</div>
+          <dl class="dl" id="execution-meta" style="margin-top:0.75rem;"></dl>
+        </section>
+
+        <section class="panel" id="cell-panel">
+          <h2 style="margin-top:0;">Selected grid cell</h2>
+          <div id="cell-content" class="muted">No grid cell selected.</div>
+        </section>
+      </aside>
+    </div>
+  </main>
+  <footer class="site-footer"><div class="footer-inner"><p><strong>GreenGen</strong> — Map and chart values reflect backend responses only; unavailable data is shown explicitly.</p></div></footer>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script type="module" src="../js/main.js"></script>
+  <script type="module" src="../js/pages/explore.js"></script>
+</body>
+</html>

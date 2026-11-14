@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="greengen-api-base" content="" />
+  <meta name="greengen-api-prefix" content="/api" />
+  <title>Reports — GreenGen</title>
+  <link rel="stylesheet" href="../css/main.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div id="global-status" class="banner" hidden></div>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true"></span><span>GreenGen</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">Menu</button>
+      <nav id="primary-nav" class="primary-nav" aria-label="Primary">
+        <ul>
+          <li><a href="../index.html">Home</a></li>
+          <li><a href="./investigations.html">Investigations</a></li>
+          <li><a href="./explore.html">Explore</a></li>
+          <li><a href="./analysis.html">Analysis</a></li>
+          <li><a href="./reports.html">Reports</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  <main id="main" class="page-main">
+    <header class="page-hero" style="padding-top:1rem;">
+      <h1>Scientific reports</h1>
+      <p class="muted">Review investigation details, methodology, results, dataset attribution, and limitations. Export is available only when supported by the backend.</p>
+    </header>
+    <section class="panel stack">
+      <div class="inline-actions">
+        <label for="report-execution-id" class="visually-hidden">Execution ID</label>
+        <input id="report-execution-id" type="text" placeholder="Execution ID" style="max-width:320px;padding:0.55rem 0.65rem;border:1px solid var(--color-border);border-radius:var(--radius-sm);" />
+        <button id="load-report" class="btn btn-primary" type="button">Load report</button>
+      </div>
+      <div id="report-status" class="notice notice-info" role="status">Enter an execution ID to load a report from the backend, or view methodology guidance below.</div>
+      <div id="report-content" class="stack"></div>
+    </section>
+
+    <section class="section panel">
+      <h2 style="margin-top:0;">Methodology and interpretation guidance</h2>
+      <div class="grid grid-2">
+        <div>
+          <h3>Statistical terms</h3>
+          <ul>
+            <li><strong>Trend direction/magnitude:</strong> estimated change over time (e.g. Sen’s slope) with units.</li>
+            <li><strong>Statistical significance:</strong> evidence against a no-trend hypothesis under stated assumptions; not proof of cause.</li>
+            <li><strong>Confidence intervals:</strong> uncertainty range for estimates when provided.</li>
+            <li><strong>Completeness:</strong> proportion of usable observations; missing data is never treated as zero.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Classification legend</h3>
+          <ul class="legend">
+            <li class="legend-item"><span class="swatch" style="background:var(--trend-increase)"></span> Significant increasing trend</li>
+            <li class="legend-item"><span class="swatch" style="background:var(--trend-decrease)"></span> Significant decreasing trend</li>
+            <li class="legend-item"><span class="swatch" style="background:var(--trend-nonsignificant)"></span> No significant trend detected (not “stable”)</li>
+            <li class="legend-item"><span class="swatch" style="background:var(--trend-insufficient)"></span> Insufficient data</li>
+            <li class="legend-item"><span class="swatch" style="background:var(--trend-unavailable)"></span> Inconclusive / unavailable</li>
+          </ul>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:0.75rem;">Observed trends do not by themselves establish causation. Always review dataset limitations, quality information, and provenance provided with results.</p>
+    </section>
+  </main>
+  <footer class="site-footer"><div class="footer-inner"><p><strong>GreenGen</strong> — Reports reflect backend-provided data and metadata only.</p></div></footer>
+  <script type="module" src="../js/main.js"></script>
+  <script type="module" src="../js/pages/reports.js"></script>
+</body>
+</html>
