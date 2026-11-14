@@ -1,427 +1,676 @@
-# Global Change Explorer
+# GreenGen | Global Change Explorer
 
-> Click anywhere on Earth and see what has changed there, by how much, and whether the change is statistically significant.
+> **Click anywhere on Earth. Discover what is changing, where it is changing, how much it is changing, and whether the change is statistically significant.**
 
-Built for a hackathon challenge on detecting change in NASA Earth science data.
+GreenGen is an interactive Earth observation analysis platform designed to make environmental change detection more accessible. It uses NASA Earth science datasets and statistical methods to identify, quantify, and visualize environmental trends across geographical locations.
+
+Built for the **NASA Space Apps Challenge 2026**.
 
 ---
 
 ## Table of Contents
 
-1. [The Challenge](#1-the-challenge)
-2. [Problem Statement](#2-problem-statement)
-3. [Our Solution](#3-our-solution)
-4. [Scope: Change Detection, Not Forecasting](#4-scope-change-detection-not-forecasting)
-5. [NASA Resources You Need](#5-nasa-resources-you-need)
-6. [Getting Access to the Data](#6-getting-access-to-the-data)
-7. [Methodology](#7-methodology)
-8. [Architecture](#8-architecture)
-9. [Tech Stack](#9-tech-stack)
-10. [Project Structure](#10-project-structure)
-11. [Setup and Installation](#11-setup-and-installation)
-12. [Usage](#12-usage)
-13. [Roadmap: MVP and Stretch Goals](#13-roadmap-mvp-and-stretch-goals)
-14. [Pitfalls and Scientific Caveats](#14-pitfalls-and-scientific-caveats)
-15. [Team](#15-team)
-16. [References](#16-references)
-17. [License](#17-license)
+- [The Challenge](#1-the-challenge)
+- [The Problem](#2-the-problem)
+- [Our Solution](#3-our-solution)
+- [Who We Are Building For](#4-who-we-are-building-for)
+- [Core Features](#5-core-features)
+- [How It Works](#6-how-it-works)
+- [Scientific Methodology](#7-scientific-methodology)
+- [Data Sources](#8-data-sources)
+- [Technology Stack](#9-technology-stack)
+- [System Architecture](#10-system-architecture)
+- [Project Structure](#11-project-structure)
+- [Getting Started](#12-getting-started)
+- [Development Roadmap](#13-development-roadmap)
+- [Scientific Limitations](#14-scientific-limitations)
+- [Contributors](#15-contributors)
+- [Contributing](#16-contributing)
+- [References](#17-references)
+- [License](#18-license)
 
 ---
 
 ## 1. The Challenge
 
-### Official brief (summarized)
+Earth is a complex and interconnected system. Its environmental conditions continuously change across time and geographical locations.
 
-Change is always occurring in the Earth's interconnected environmental system. When change runs in a consistent direction (rising or falling, increasing or decreasing, thickening or thinning), measured variables reflect it. But a measured Earth science variable can trend one way in one region and the opposite way in another, even when the same process drives both.
+Scientists collect enormous amounts of Earth observation data through satellites, scientific missions, and Earth system models. However, identifying meaningful environmental trends across these datasets is not always straightforward.
 
-The large number of Earth science variables makes it hard to:
+The NASA challenge asks us to develop a solution that helps people:
 
-- **select** variables that could indicate change, and
-- **analyze** the selected variables properly.
+- Identify Earth science variables that indicate environmental change.
+- Visualize how these variables change over time.
+- Determine where changes are occurring.
+- Quantify the magnitude and direction of those changes.
+- Establish whether observed trends are statistically significant.
+- Understand why the same environmental variable may behave differently across different geographical regions.
 
-### What we are asked to build
+GreenGen aims to make this process easier to explore, understand, and communicate.
 
-A tool that can:
+## 2. The Problem
 
-1. **Select** variables measured by Earth science missions or produced by Earth science models.
-2. **Visualize** how those variables change over time.
-3. **Determine**:
-   - **What** is changing
-   - **Where** it is changing
-   - **How much** it is changing
-   - Whether the change is what scientists call **"significant"**
+Earth science data is widely available, but extracting meaningful information from it requires knowledge of datasets, data processing, geographical analysis, and statistical methods.
 
-### What the brief is really testing
+A person interested in understanding environmental changes in a particular location may need to:
 
-| Theme | What judges will look for |
-|---|---|
-| Variable selection | Help navigating many variables, not a hard-coded list |
-| Visualization | Clear maps and time series |
-| Quantification | Rates with units (for example mm/yr, °C/decade) |
-| Statistical rigor | Proper significance testing, not just a fitted line |
-| Regional contradiction | Handling places where the same variable moves in opposite directions |
+1. Identify relevant environmental variables.
+2. Find suitable satellite or model datasets.
+3. Access and process the observations.
+4. Analyze historical measurements.
+5. Calculate the direction and magnitude of change.
+6. Determine the statistical reliability of the results.
+7. Compare findings across geographical locations.
 
-The word "significant" is in quotes in the brief on purpose. It signals that a valid statistical treatment is expected.
+This creates a barrier for people who need environmental information but do not necessarily have advanced remote sensing or statistical expertise.
 
----
+There is also an important scientific challenge: **the same environmental variable can increase in one region and decrease in another.**
 
-## 2. Problem Statement
+A global average may hide these regional differences.
 
-Earth science data is abundant but hard to navigate. There are too many variables to choose from, and once one is chosen, it is hard to tell what is actually changing, where, by how much, and whether the change is statistically meaningful, especially when the same variable trends in opposite directions in different regions.
-
-**Goal:** build an accessible tool where anyone can pick a location on a world map and immediately learn which variables have changed there, how much, and whether the change is significant.
-
-**Target users:** students, researchers, journalists, and decision-makers who are not statistics or remote-sensing experts.
-
----
+GreenGen addresses this problem through location-based exploration and grid-level analysis.
 
 ## 3. Our Solution
 
-**Global Change Explorer** is an interactive web map. Instead of asking the user to pick a variable first, it flips the workflow: **pick a place, and the tool tells you what changed there.**
+GreenGen is a global environmental change exploration platform.
 
-### User flow
+Instead of requiring users to understand datasets and select variables before beginning an investigation, GreenGen allows them to start with a geographical location or a predefined scientific question.
 
-1. **Browse the world map.** Choose a layer: a combined **change score** (where many variables are changing significantly) or a single variable such as precipitation.
-2. **Click a location** (or search for a place).
-3. **Read the change report** for that location:
-   - Variables ranked by how strongly and significantly they have changed
-   - Rate of change with units, and a significant or not significant verdict
-   - A time series with the trend line for any selected variable
-   - A **nearby comparison**: do surrounding areas trend the same way or the opposite way?
-   - A plain-language summary
-4. **Export** the report.
+The platform analyzes available environmental observations and presents the detected changes in an understandable format.
 
-### Key features
+### The central experience
 
-- Click-to-explore global map with trend and significance layers
-- Automatic variable selection per location, which directly addresses "too many variables to choose from"
-- Rigorous significance testing (seasonality, autocorrelation, and multiple comparisons handled)
-- Divergence view that shows where neighbors move in opposite directions
-- Honest caveats for short records, coarse resolution, and missing data
+**Select a location → Discover available variables → Explore environmental trends → Understand the results.**
 
-Design mockups of the app screen and the pipeline are in the project's design file.
+### Two ways to investigate
 
-### Key idea: precompute globally, answer instantly
+#### A. Explore a location
 
-Running trend statistics over millions of grid cells on every click would be too slow. The tool therefore **precomputes** trend and significance for every grid cell and every variable ahead of time, stores them as map layers and arrays, and answers each click with a fast lookup.
+Users interact with a global map to:
+
+1. Select a geographical location.
+2. Discover environmental variables available for that area.
+3. View the direction and magnitude of detected trends.
+4. Examine statistical significance and data quality.
+5. Explore historical time series.
+6. Compare the selected grid cell with surrounding areas.
+
+#### B. Guided investigations
+
+Users select a predefined environmental investigation.
+
+For example:
+
+- How has precipitation changed over time?
+- Where are vegetation greenness trends increasing or decreasing?
+- How have land surface temperatures changed?
+- Which neighbouring regions show contrasting environmental trends?
+
+Users can specify a geographical area and historical period where supported.
+
+Both experiences use the same underlying scientific analysis engine.
+
+## 4. Who We Are Building For
+
+GreenGen is designed for people who need to understand and communicate environmental change.
+
+| Audience | What GreenGen helps them do |
+|---|---|
+| Scientists | Explore environmental trends and inspect statistical results. |
+| Students | Understand Earth system changes through interactive visualizations. |
+| Researchers | Investigate geographical patterns and export analytical results. |
+| Journalists | Find and communicate evidence of environmental change. |
+| Educators | Demonstrate environmental processes using real Earth observation data. |
+
+The scientific calculations remain consistent across audiences. The presentation can be adapted to provide simpler explanations or more detailed scientific information.
+
+## 5. Core Features
+
+### 5.1 Interactive Global Map
+
+Explore geographical locations using an interactive map.
+
+Users can inspect environmental trend layers and select locations for detailed analysis.
+
+### 5.2 Automatic Variable Discovery
+
+Identify which environmental variables are available and relevant to a selected geographical location.
+
+Variables that do not apply to a particular surface type should not be presented as applicable measurements.
+
+### 5.3 Predefined Investigations
+
+Provide guided environmental investigations that help users explore specific scientific questions without requiring them to understand the underlying datasets first.
+
+### 5.4 Grid-Level Trend Analysis
+
+Analyze environmental changes at individual geographical grid cells rather than relying exclusively on global or regional averages.
+
+This helps reveal local patterns and opposing trends across neighbouring locations.
+
+### 5.5 Statistical Significance
+
+Distinguish statistically significant trends from trends that do not meet the selected statistical criteria.
+
+Present the statistical results alongside their limitations and uncertainty.
+
+### 5.6 Historical Time Series
+
+Visualize historical measurements and calculated trends for selected environmental variables.
+
+### 5.7 Regional Comparison
+
+Compare neighbouring geographical cells to identify areas experiencing similar or contrasting changes.
+
+### 5.8 Understandable Scientific Reports
+
+Translate verified analytical results into clear explanations while preserving the original measurements, units, statistical information, and data limitations.
 
 ---
 
-## 4. Scope: Change Detection, Not Forecasting
+## 6. How It Works
 
-This project analyzes **observed** past and present data. It does **not** predict the future.
+GreenGen follows a scientific processing workflow.
 
-| | This project | Forecasting (out of scope) |
+```text
+                  USER
+                    |
+                    v
+          Select location or
+        predefined investigation
+                    |
+                    v
+           Identify available
+          environmental variables
+                    |
+                    v
+            NASA DATA SOURCES
+                    |
+                    v
+            Data acquisition
+                    |
+                    v
+          Data quality checks
+                    |
+                    v
+          Temporal processing
+                    |
+                    v
+          Grid-level analysis
+                    |
+                    v
+          Statistical assessment
+                    |
+                    v
+          Store processed results
+                    |
+                    v
+           API / DATA ACCESS
+                    |
+                    v
+          Interactive visualization
+                    |
+                    v
+             USER REPORT
+```
+
+### Processing stages
+
+| Stage | Description |
+|---|---|
+| Data discovery | Identify relevant NASA datasets and available observations. |
+| Data acquisition | Retrieve the required geographical and historical data. |
+| Quality assessment | Check missing observations, quality flags, and record completeness. |
+| Preprocessing | Prepare observations for consistent temporal analysis. |
+| Trend analysis | Calculate the direction and magnitude of change. |
+| Significance testing | Evaluate whether the observed trend meets statistical significance criteria. |
+| Spatial analysis | Analyze and compare results across geographical grid cells. |
+| Visualization | Present maps, time series, and analytical summaries. |
+
+---
+
+## 7. Scientific Methodology
+
+Scientific reliability is central to GreenGen.
+
+The platform must distinguish between an observed change, a statistically significant trend, and an environmentally meaningful change.
+
+### 7.1 Temporal Analysis
+
+Environmental observations are organized into historical time series.
+
+Depending on the dataset, measurements may be aggregated into monthly or annual observations.
+
+Seasonality must be considered so that recurring seasonal patterns are not incorrectly interpreted as long-term trends.
+
+### 7.2 Trend Magnitude
+
+GreenGen uses the Theil-Sen estimator to calculate robust trend slopes.
+
+The result communicates how quickly a variable is changing.
+
+Examples of possible units include:
+
+- Millimetres per year for precipitation.
+- Degrees Celsius per decade for temperature.
+- Appropriate dataset-specific units for other environmental variables.
+
+### 7.3 Statistical Significance
+
+The Mann-Kendall test can be used to evaluate whether a monotonic trend is statistically significant.
+
+Where necessary, the analysis must account for temporal autocorrelation.
+
+A statistical significance threshold should be explicitly documented.
+
+### 7.4 Multiple Comparisons
+
+Analyzing thousands of grid cells introduces the risk of false positive results.
+
+GreenGen will use an appropriate multiple-testing correction, such as the Benjamini-Hochberg False Discovery Rate procedure, where applicable.
+
+### 7.5 Grid-Level Analysis
+
+Each valid grid cell is analyzed independently.
+
+For every cell, the platform aims to retain:
+
+- Trend direction.
+- Trend magnitude.
+- Statistical significance.
+- Number of valid observations.
+- Analysis period.
+- Data quality information.
+- Relevant uncertainty information.
+
+### 7.6 Regional Comparison
+
+Neighbouring grid cells can be compared to identify spatial differences.
+
+For example, precipitation may increase in one region while decreasing in a neighbouring region.
+
+The platform should communicate these differences rather than hiding them behind a single regional average.
+
+### 7.7 Scientific Reproducibility
+
+Every result should be traceable to:
+
+- Its original dataset.
+- Dataset version.
+- Variable and units.
+- Geographical coverage.
+- Historical period.
+- Processing configuration.
+- Statistical methodology.
+
+All statistical calculations must be performed by the scientific processing engine, not generated by an AI language model.
+
+AI may assist with explaining verified results, but it must never invent measurements or statistical conclusions.
+
+---
+
+## 8. Data Sources
+
+GreenGen uses NASA Earth science observations and model-produced datasets.
+
+The following are candidate data sources. Their suitability, temporal coverage, access methods, and versions must be verified before implementation.
+
+| Environmental variable | Dataset | Potential application |
 |---|---|---|
-| Question | What has been changing, where, how much, is it real? | What will happen in 2035? |
-| Method | Trend detection and significance testing | Machine learning or physical simulation |
-| Output | "Precipitation decreased X mm/yr, p < 0.01" | "Precipitation will fall by Y by 2040" |
+| Precipitation | GPM IMERG | Historical precipitation trends. |
+| Vegetation greenness | MODIS MOD13 | Vegetation condition and greenness changes. |
+| Land surface temperature | MODIS MOD11 | Historical land surface temperature changes. |
+| Air temperature | MERRA-2 | Atmospheric temperature trends. |
+| Terrestrial water storage | GRACE / GRACE-FO | Changes in terrestrial water storage. |
+| Soil moisture | SMAP / GLDAS | Changes in soil moisture conditions. |
+| Sea ice concentration | NSIDC datasets | Historical sea ice changes. |
 
-"Earth science models" in the brief refers to datasets **produced by** models (for example MERRA-2 reanalysis) that we analyze as inputs. We do not need to build our own models.
+### NASA data resources
 
-If a forward-looking view is added, it must be labeled "if the current rate continues," with wide uncertainty bands, and never presented as a forecast.
+| Resource | Purpose |
+|---|---|
+| [NASA Earthdata](https://www.earthdata.nasa.gov/) | Access NASA Earth science data. |
+| [Earthdata Search](https://search.earthdata.nasa.gov/) | Discover datasets and inspect their metadata. |
+| [earthaccess](https://earthaccess.readthedocs.io/) | Access NASA Earthdata programmatically using Python. |
+| [NASA Giovanni](https://giovanni.gsfc.nasa.gov/) | Explore and independently inspect environmental datasets. |
+| [NASA Worldview](https://worldview.earthdata.nasa.gov/) | Explore satellite imagery. |
+| [Common Metadata Repository](https://cmr.earthdata.nasa.gov/) | Search NASA Earth science dataset metadata. |
+
+### Initial implementation priority
+
+The first complete data pipeline should focus on one dataset, such as GPM IMERG precipitation.
+
+The team should demonstrate that it can:
+
+1. Retrieve real NASA observations.
+2. Validate the data.
+3. Process the historical time series.
+4. Calculate grid-level trends.
+5. Evaluate statistical significance.
+6. Visualize the results.
+
+Additional variables should be integrated after the first pipeline has been validated.
+
+### Important data principle
+
+GreenGen should preserve the native spatial resolution and characteristics of each dataset during initial processing.
+
+If datasets need to be placed on a common grid for comparison, the team must document the harmonization method and its effect on the results.
 
 ---
 
-## 5. NASA Resources You Need
+## 9. Technology Stack
 
-NASA data is split across archive centers called **DAACs** (Distributed Active Archive Centers). Dataset names and versions change over time, so **confirm the exact short name and latest version in Earthdata Search** before running any download script.
+The following is the proposed technology stack based on the current project direction.
 
-### 5.1 Core datasets (recommended for the MVP)
-
-Choose one variable per surface type so that every click returns something useful on land, ocean, or ice.
-
-| Variable | Dataset | Surface | Archive (DAAC) | Notes |
-|---|---|---|---|---|
-| Precipitation | **GPM IMERG** (monthly) | Land and ocean | GES DISC | 0.1° grid; reliability drops at high latitudes |
-| Vegetation greenness | **MODIS MOD13 (NDVI/EVI)** | Land | LP DAAC | Long record from 2000; aggregate from 1 km |
-| Land surface temperature | **MODIS MOD11** | Land | LP DAAC | Fine resolution; gaps under cloud |
-| Air temperature and humidity | **MERRA-2** reanalysis | Global | GES DISC | Model-produced; gap-free; satisfies the "produced by models" part of the brief |
-| Terrestrial water storage | **GRACE / GRACE-FO mascons** | Land | PO.DAAC | Coarse (hundreds of km); gap between missions in 2017 to 2018 |
-| Sea ice concentration | **NSIDC passive microwave sea ice** | Polar oceans | NSIDC DAAC | Long, consistent record |
-
-### 5.2 Supporting datasets (stretch)
-
-| Variable | Dataset | Surface | Archive (DAAC) | Notes |
-|---|---|---|---|---|
-| Soil moisture and land model outputs | **GLDAS / FLDAS** | Land | GES DISC | Model-based, long record |
-| Soil moisture (satellite) | **SMAP** | Land | NSIDC DAAC | Record since 2015; low trend reliability |
-| Evapotranspiration | **MODIS MOD16** | Land | LP DAAC | Water loss from vegetation and irrigation |
-| Snow cover | **MODIS snow cover products** | Land | NSIDC DAAC | Seasonal snow trends |
-| Sea surface temperature | **GHRSST products (for example MUR)** | Ocean | PO.DAAC | Ocean warming |
-| Sea surface height | **Gridded sea surface height anomaly** | Ocean | PO.DAAC | Sea level change |
-| Ocean chlorophyll | **MODIS-Aqua ocean color** | Ocean | OB.DAAC | Marine productivity |
-| Nitrogen dioxide (air quality) | **OMI NO2** | Atmosphere | GES DISC | Air pollution trends |
-| Night lights | **VIIRS Black Marble** | Land | LAADS DAAC | Urban expansion; record from 2012 |
-| Ice sheet and glacier elevation | **ICESat-2 land ice products** | Ice | NSIDC DAAC | Sparse sampling; short record |
-
-### 5.3 Archive centers
-
-| DAAC | Website | Holds |
+| Component | Technology | Responsibility |
 |---|---|---|
-| GES DISC | https://disc.gsfc.nasa.gov | IMERG, MERRA-2, GLDAS, FLDAS, OMI |
-| LP DAAC | https://lpdaac.usgs.gov | MODIS and VIIRS land products |
-| PO.DAAC | https://podaac.jpl.nasa.gov | GRACE and GRACE-FO, sea surface temperature and height |
-| NSIDC DAAC | https://nsidc.org | Sea ice, snow, SMAP, ICESat-2 |
-| OB.DAAC | https://oceancolor.gsfc.nasa.gov | Ocean color |
-| LAADS DAAC | https://ladsweb.modaps.eosdis.nasa.gov | VIIRS Black Marble |
+| Programming language | Python | Scientific processing and data integration. |
+| Data processing | Xarray, NumPy, Pandas | Multidimensional Earth science data processing. |
+| Statistical analysis | SciPy, statsmodels, pymannkendall | Statistical calculations and trend analysis. |
+| NASA data access | earthaccess | NASA Earthdata access. |
+| Backend API | FastAPI | Application endpoints and processing orchestration. |
+| Frontend | React | User interface. |
+| Geospatial visualization | MapLibre GL JS | Interactive geographical maps. |
+| Time-series visualization | Plotly | Historical data visualization. |
+| Scientific storage | NetCDF / Zarr | Processed scientific datasets and arrays. |
+| Version control | Git and GitHub | Collaboration and source code management. |
 
-### 5.4 NASA tools and services
-
-| Tool | URL | What it is for |
-|---|---|---|
-| **Earthdata Login** | https://urs.earthdata.nasa.gov | Free account required for almost all NASA data |
-| **Earthdata Search** | https://search.earthdata.nasa.gov | Find datasets, subset by region and date, get exact dataset names |
-| **earthaccess** (Python) | https://github.com/nsidc/earthaccess | Log in, search, download, or stream NASA data from code |
-| **Giovanni** | https://giovanni.gsfc.nasa.gov | No-code time series and maps; use to validate your own results |
-| **Worldview** | https://worldview.earthdata.nasa.gov | Imagery browsing, useful for demo visuals |
-| **Common Metadata Repository (CMR) API** | https://cmr.earthdata.nasa.gov | Programmatic catalog search behind Earthdata Search |
-
-### 5.5 Optional non-NASA platform
-
-**Google Earth Engine** (https://earthengine.google.com) hosts many NASA datasets with built-in processing and can be much faster for prototyping a global pipeline, but requires separate sign-up.
+Technology choices may be refined as implementation progresses. Any major architectural change should be discussed and documented by the team.
 
 ---
 
-## 6. Getting Access to the Data
+## 10. System Architecture
 
-### One-time setup (every team member)
+GreenGen separates scientific processing from the user-facing application.
 
-1. Register for a free **Earthdata Login** account.
-2. Install the client: `pip install earthaccess`
-3. Log in from Python: `earthaccess.login()`
+### Data layer
 
-### Global data strategy
+Responsible for discovering, retrieving, validating, and preparing NASA datasets.
 
-Global data is large, so be deliberate:
+### Scientific engine
 
-- **Use monthly products only.** Daily data over 20+ years is unnecessary for trends.
-- **Regrid everything to one common grid**, for example 0.25° (about 25 km), so layers line up and a click can query all variables at once.
-- **Pick a common period**, for example 2002 to 2024, so variables are comparable, and note shorter records separately.
-- **Pre-fetch, process, and cache** as Zarr or NetCDF. Never rely on live downloads in the demo.
-- **Start with one variable** end to end (IMERG), then add others.
-- **Check the hackathon's resource page** for recommended datasets or ready-made data links.
+Responsible for temporal processing, trend calculations, statistical testing, and grid-level analysis.
 
-### Example: download monthly IMERG
+### Results storage
 
-```python
-import earthaccess
+Stores processed analytical outputs and the metadata needed to reproduce and interpret them.
 
-earthaccess.login()
+Large scientific datasets should not be unnecessarily stored as ordinary relational database records.
 
-results = earthaccess.search_data(
-    short_name="GPM_3IMERGM",          # confirm in Earthdata Search
-    temporal=("2002-01-01", "2024-12-31"),
-)
-files = earthaccess.download(results, "./data/raw")
-```
+### Backend API
 
----
+Provides access to investigation definitions, available variables, analytical results, and processing status.
 
-## 7. Methodology
+### Frontend
 
-Run once per variable, offline:
+Provides the interactive map, investigation catalogue, historical charts, and scientific result reports.
 
-```
-Load → Regrid → Anomalies → Trend per cell → Significance → Store layers
-```
+### Architecture principle
 
-On each click, online:
+The frontend should not perform scientific calculations.
 
-```
-Click → Look up all variables at the cell → Rank → Compare with neighbors → Summary
-```
+The backend should not invent scientific results.
 
-| Step | What happens | Method / tool |
-|---|---|---|
-| **Load and regrid** | Read gridded data and put every variable on one grid | xarray, xESMF or similar |
-| **Anomalies** | Gaps handled and the **seasonal cycle removed** | xarray, NumPy |
-| **Trend** | Rate of change per cell, with units | **Theil-Sen slope** (robust to outliers) |
-| **Significance** | Test whether the trend is real | **Mann-Kendall** with autocorrelation correction (Hamed-Rao) |
-| **Multiple testing** | Avoid false positives across millions of cells | False Discovery Rate (Benjamini-Hochberg) |
-| **Record-length check** | Flag unreliable short records | Minimum years threshold |
-| **Ranking at a click** | Order variables by trend relative to normal variability, then by significance | Standardized trend (trend divided by interannual spread) |
-| **Nearby comparison** | Share of cells within about 500 km trending the same or the opposite way | Neighborhood statistics |
-| **Summary** | Plain-language text | Templates (or an LLM that only phrases results, never computes them) |
-
-### Why not a plain linear regression?
-
-Raw satellite series are dominated by the seasonal cycle and are autocorrelated. A plain regression p-value is overconfident in that case. Hence anomalies, a non-parametric test, and an autocorrelation-aware correction.
+The scientific engine should be responsible for producing reproducible analytical outputs.
 
 ---
 
-## 8. Architecture
+## 11. Project Structure
 
-| Layer | Responsibility | Tools |
-|---|---|---|
-| **Data layer** | Cached, regridded monthly data for each variable | earthaccess, xarray, Zarr/NetCDF |
-| **Analysis engine (offline)** | Anomalies, trend, significance, and FDR for every cell | NumPy, SciPy, pymannkendall |
-| **Layer store** | Trend, p-value, and record length per variable | Zarr, Cloud Optimized GeoTIFF, or map tiles |
-| **API** | Point lookup (all variables at a click), time series, neighbor stats | FastAPI |
-| **Frontend** | World map, layer switcher, change report panel | React + MapLibre + Plotly (or Streamlit) |
-| **Optional AI layer** | Natural-language questions and explanations | LLM API calling the analysis functions |
+The repository will evolve as the application is implemented.
 
-Design principle: **the statistics are always deterministic.** If an LLM is used, it only explains the results.
+A proposed structure is:
 
----
-
-## 9. Tech Stack
-
-- **Language:** Python 3.10+
-- **Data:** xarray, NumPy, pandas, netCDF4, zarr, dask, earthaccess
-- **Statistics:** SciPy, pymannkendall, statsmodels
-- **Backend:** FastAPI, Uvicorn
-- **Frontend:** React, MapLibre GL JS, Plotly (alternative: Streamlit or Dash for speed)
-- **Tooling:** Git, Jupyter for exploration
-
----
-
-## 10. Project Structure
-
-Suggested layout (adjust to your repo):
-
-```
-global-change-explorer/
+```text
+GreenGen/
+│
 ├── README.md
-├── config/
-│   └── datasets.yaml        # dataset names, variables, units, surface type, record length
-├── data/
-│   ├── raw/                 # downloaded NASA files (git-ignored)
-│   └── cache/               # regridded monthly Zarr per variable
-├── layers/                  # precomputed trend, p-value, and record-length layers
-├── notebooks/               # exploration and validation against Giovanni
-├── src/
-│   ├── ingest/              # earthaccess download
-│   ├── preprocess/          # regrid, anomalies, gap handling
-│   ├── analysis/            # Theil-Sen, Mann-Kendall, FDR, ranking, neighbors
-│   ├── summary/             # plain-language report generation
-│   └── api/                 # FastAPI routes
-├── frontend/                # React app (or streamlit_app.py)
-├── tests/                   # unit tests on synthetic data with known trends
-└── docs/                    # design mockups and pitch material
+│
+├── docs/
+│   ├── PROJECT_OVERVIEW.md
+│   ├── PRODUCT_REQUIREMENTS.md
+│   ├── SCIENTIFIC_METHODOLOGY.md
+│   ├── DATA_SOURCES.md
+│   ├── SYSTEM_ARCHITECTURE.md
+│   ├── TEAM_ROLES.md
+│   ├── DEVELOPMENT_ROADMAP.md
+│   └── CONTRIBUTING.md
+│
+├── frontend/
+│
+├── backend/
+│
+├── scientific-engine/
+│
+├── tests/
+│
+├── .github/
+│   ├── ISSUE_TEMPLATE/
+│   └── pull_request_template.md
+│
+└── .gitignore
 ```
+
+This is the intended organization, not a claim that every directory has already been implemented.
 
 ---
 
-## 11. Setup and Installation
+## 12. Getting Started
+
+### Prerequisites
+
+- Git.
+- Python 3.10 or later.
+- Node.js and npm.
+- A NASA Earthdata account for accessing applicable datasets.
+
+### Clone the repository
 
 ```bash
-# 1. Clone the repository
-git clone <your-repo-url>
-cd global-change-explorer
+git clone https://github.com/asoyovick/GreenGen.git
 
-# 2. Create a virtual environment
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-
-# 3. Install dependencies
-pip install earthaccess xarray netCDF4 zarr dask numpy scipy pandas \
-            pymannkendall statsmodels fastapi uvicorn
-
-# 4. Authenticate with NASA Earthdata
-python -c "import earthaccess; earthaccess.login()"
-
-# 5. Download, regrid, and compute global trend layers
-python -m src.ingest.download --config config/datasets.yaml
-python -m src.analysis.build_layers --config config/datasets.yaml
-
-# 6. Run the API
-uvicorn src.api.main:app --reload
-
-# 7. Run the frontend (separate terminal)
-cd frontend && npm install && npm run dev
+cd GreenGen
 ```
 
-Commands are a template; update module names to match your actual code.
+### Scientific environment
+
+```bash
+python -m venv .venv
+
+source .venv/bin/activate
+```
+
+On Windows:
+
+```powershell
+.venv\Scripts\activate
+```
+
+### Install initial scientific dependencies
+
+```bash
+pip install earthaccess xarray netCDF4 zarr dask numpy scipy pandas statsmodels pymannkendall fastapi uvicorn
+```
+
+### NASA Earthdata authentication
+
+Create an Earthdata account and configure authentication using the official earthaccess documentation.
+
+### Running the application
+
+The exact commands for running the backend and frontend will be added when their application entry points and dependency files have been established.
+
+Do not assume the example setup commands represent an already completed implementation.
 
 ---
 
-## 12. Usage
+## 13. Development Roadmap
 
-1. Open the app and choose a **map layer** (change score or a single variable).
-2. **Click a location** or search for a place.
-3. Read the **change report**:
-   - **Ranked variables:** arrows show direction, with rate per decade and a significant or not significant verdict.
-   - **Time series:** monthly anomalies with the trend line for the selected variable.
-   - **Nearby comparison:** whether surrounding areas agree or trend in the opposite direction.
-4. **Export** the report for that location.
+Development will be organized into milestones.
 
-### Example output format
-
-> "At this location, [variable] has [increased/decreased] by [rate] per decade since [year] (p = [value], significant after correction). Nearby, [share]% of surrounding cells trend the opposite way."
-
-(Format only; real values come from the data.)
-
----
-
-## 13. Roadmap: MVP and Stretch Goals
-
-### MVP
-
-- [ ] Earthdata access working for every teammate
-- [ ] 3 to 4 global variables cached on a common grid (IMERG, MODIS NDVI, MODIS LST or MERRA-2 temperature, GRACE-FO)
-- [ ] Anomalies, Theil-Sen slope, Mann-Kendall significance, FDR correction
-- [ ] Global trend layer with significance marking
-- [ ] Click-to-report panel with ranked variables and a time series
-- [ ] Plain-language summary
-- [ ] Validation of at least one location against Giovanni
-
-### Stretch
-
-- [ ] Combined "change score" layer
-- [ ] Nearby comparison and divergence highlighting
-- [ ] Sea ice, sea surface temperature, and ocean variables for ocean clicks
-- [ ] Place search
-- [ ] Natural-language questions ("what changed near Lake Chad?")
-- [ ] Cross-variable lagged correlation view
-- [ ] Exportable report or shareable link
-- [ ] Clearly labeled "if the current rate continues" extrapolation
-
----
-
-## 14. Pitfalls and Scientific Caveats
-
-| Pitfall | How we handle it |
-|---|---|
-| Seasonal cycle masquerading as a trend | Always analyze anomalies |
-| Overconfident p-values on autocorrelated data | Hamed-Rao modified Mann-Kendall |
-| False positives across millions of cells | FDR correction |
-| Variables that do not apply to a location (vegetation over ocean) | Show only variables valid for that surface type |
-| Short records (SMAP, ICESat-2, night lights) | Flag as low confidence |
-| Coarse resolution (GRACE) | State the effective resolution in the report |
-| Cloud gaps and mission gaps | Flag and report; do not silently interpolate |
-| Different periods across variables | Use a common period and label exceptions |
-| Correlation read as causation | Word relationships as association only |
-| Slow global computation | Precompute layers offline |
-| Live-demo failures | Pre-cache all data |
-
----
-
-## 15. Team
-
-| Name | Role | Responsibility |
+| Milestone | Objective | Expected outcome |
 |---|---|---|
-| [NAME] | Data acquisition | Earthdata access, downloads, regridding |
-| [NAME] | Analysis | Anomalies, trends, significance |
-| [NAME] | Frontend | Map, change report panel |
-| [NAME] | Backend / integration | API, layers, deployment |
-| [NAME] | Pitch and documentation | Story, slides, validation write-up |
+| 1. Foundation | Finalize requirements, architecture, repository conventions, and team responsibilities. | Agreed technical and scientific direction. |
+| 2. Data acquisition | Integrate the first NASA dataset. | Real observations available for processing. |
+| 3. Scientific engine | Implement temporal processing and grid-level trend analysis. | Validated scientific outputs. |
+| 4. Backend | Expose investigations and analytical results through APIs. | Working application data layer. |
+| 5. Frontend | Build the global map and investigation experience. | Users can explore results. |
+| 6. Validation | Test scientific correctness and application reliability. | Reproducible and trustworthy results. |
+| 7. Delivery | Deploy and prepare the final demonstration. | Functional hackathon submission. |
+
+### MVP priorities
+
+The first working version should demonstrate:
+
+- At least one real NASA dataset.
+- A working geographical exploration experience.
+- Historical time-series visualization.
+- Grid-level trend analysis.
+- Statistical significance assessment.
+- Clear explanations of results and limitations.
+
+### Stretch goals
+
+- Additional environmental variables.
+- More advanced regional comparison.
+- Combined environmental change indicators.
+- Natural-language exploration.
+- Downloadable investigation reports.
+- Cross-variable analysis.
+
+The team should prioritize a complete, scientifically defensible workflow over a large collection of partially implemented features.
 
 ---
 
-## 16. References
+## 14. Scientific Limitations
 
-- NASA Earthdata: https://www.earthdata.nasa.gov
-- Earthdata Search: https://search.earthdata.nasa.gov
-- earthaccess documentation: https://earthaccess.readthedocs.io
-- Giovanni: https://giovanni.gsfc.nasa.gov
-- Mann, H. B. (1945) and Kendall, M. G. (1975): the Mann-Kendall trend test
-- Sen, P. K. (1968): Estimates of the regression coefficient based on Kendall's tau (Theil-Sen estimator)
-- Hamed, K. H. and Rao, A. R. (1998): A modified Mann-Kendall trend test for autocorrelated data
-- Benjamini, Y. and Hochberg, Y. (1995): Controlling the false discovery rate
+GreenGen must communicate scientific limitations honestly.
+
+| Limitation | Required treatment |
+|---|---|
+| Missing observations | Identify and report missing data. |
+| Seasonal variation | Account for seasonality in the analysis. |
+| Temporal autocorrelation | Use an appropriate statistical correction. |
+| Multiple testing | Apply suitable false discovery rate control. |
+| Different dataset resolutions | Preserve and report native resolution. |
+| Short historical records | Flag results with limited temporal coverage. |
+| Dataset changes | Document product versions and known discontinuities. |
+| Regional differences | Avoid relying exclusively on global averages. |
+| Statistical significance | Do not confuse statistical significance with practical importance. |
+| Correlation | Do not present correlation as proof of causation. |
+
+A statistically significant trend does not automatically mean that the change is environmentally important.
+
+Likewise, a trend that is not statistically significant does not prove that no environmental change has occurred.
+
+GreenGen is an environmental change detection platform, not a climate attribution or future forecasting system.
 
 ---
 
-## 17. License
+## 15. Contributors
 
-[Choose a license, for example MIT] and credit NASA for all source data. NASA Earth science data is generally open, but check the terms for each dataset.
+GreenGen is being developed collaboratively by a team of six contributors working remotely.
+
+Each contributor owns a major workstream while collaborating with the rest of the team through GitHub issues, branches, pull requests, and reviews.
+
+| Contributor | GitHub | Responsibility |
+|---|---|---|
+| Contributor 1 | [GitHub profile](GITHUB_PROFILE_1) | Product coordination, scientific requirements, and integration. |
+| Contributor 2 | [GitHub profile](GITHUB_PROFILE_2) | NASA data acquisition, processing, and quality assessment. |
+| Contributor 3 | [GitHub profile](GITHUB_PROFILE_3) | Statistical methodology and grid-level scientific analysis. |
+| Contributor 4 | [GitHub profile](GITHUB_PROFILE_4) | Backend development, APIs, and system integration. |
+| Contributor 5 | [GitHub profile](GITHUB_PROFILE_5) | Frontend development and geospatial visualization. |
+| Contributor 6 | [GitHub profile](GITHUB_PROFILE_6) | Testing, scientific validation, and documentation. |
+
+**Note:** Replace the contributor placeholders with the actual names and GitHub usernames before publishing the final README.
+
+All contributors are expected to participate in code reviews, communicate implementation decisions, and help integrate the different components.
+
+---
+
+## 16. Contributing
+
+We welcome contributions from all members of the GreenGen development team.
+
+### Development workflow
+
+1. Check the GitHub Issues board.
+2. Select or get assigned an issue.
+3. Create a dedicated branch.
+4. Implement the assigned functionality.
+5. Test your changes.
+6. Submit a pull request.
+7. Request a review.
+8. Merge after approval.
+
+### Branch naming
+
+Use descriptive branch names:
+
+```text
+feature/nasa-data-ingestion
+feature/grid-trend-analysis
+feature/global-map
+fix/data-validation
+docs/scientific-methodology
+```
+
+### Commit messages
+
+Use clear, focused commit messages:
+
+```text
+feat: add NASA precipitation data ingestion
+
+feat: implement grid-level trend analysis
+
+fix: handle missing observation values
+
+docs: update scientific methodology
+```
+
+### Collaboration principles
+
+- Do not commit directly to the main branch.
+- Keep pull requests focused on a specific issue.
+- Test scientific calculations before submitting them.
+- Document assumptions and data transformations.
+- Do not commit NASA data files or large generated datasets.
+- Never present synthetic test data as real NASA observations.
+- Discuss major architectural changes before implementation.
+
+---
+
+## 17. References
+
+### NASA resources
+
+- [NASA Earthdata](https://www.earthdata.nasa.gov/)
+- [NASA Earthdata Search](https://search.earthdata.nasa.gov/)
+- [NASA Giovanni](https://giovanni.gsfc.nasa.gov/)
+- [NASA Worldview](https://worldview.earthdata.nasa.gov/)
+- [NASA Common Metadata Repository](https://cmr.earthdata.nasa.gov/)
+- [earthaccess documentation](https://earthaccess.readthedocs.io/)
+
+### Statistical references
+
+- Mann, H. B. (1945). Nonparametric tests against trend.
+- Kendall, M. G. (1975). Rank Correlation Methods.
+- Sen, P. K. (1968). Estimates of the regression coefficient based on Kendall's tau.
+- Hamed, K. H., and Rao, A. R. (1998). A modified Mann-Kendall trend test for autocorrelated data.
+- Benjamini, Y., and Hochberg, Y. (1995). Controlling the false discovery rate.
+
+---
+
+## 18. License
+
+A license has not yet been selected.
+
+The team should agree on an appropriate open-source license before publishing the final project release.
+
+NASA datasets should be credited appropriately, and the terms applicable to each individual dataset should be respected.
+
+---
+
+**GreenGen: Making Earth's environmental changes easier to discover, analyze, and understand.**
