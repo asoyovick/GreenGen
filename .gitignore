@@ -2,6 +2,7 @@
 .netrc
 .env
 .env.*
+!.env.example
 *.pem
 
 # Python

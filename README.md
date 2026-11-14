@@ -145,6 +145,12 @@ CMR dry-run counts, and what was **not** validated.
 - [docs/DECISIONS.md](docs/DECISIONS.md) — key design decisions
 - [docs/VALIDATION.md](docs/VALIDATION.md) — what was and wasn’t validated
 - [docs/NASA_DATA_GUIDE.md](docs/NASA_DATA_GUIDE.md) — practical NASA data guide
+- [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) — PRD, MVP scope, and project rules
+- [docs/INVESTIGATION_CATALOGUE.md](docs/INVESTIGATION_CATALOGUE.md) — predefined investigations (MVP: precipitation)
+- [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md) — target architecture and integration plan
+- [docs/API_CONTRACTS.md](docs/API_CONTRACTS.md) — cross-team interface contracts (draft)
+- [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) — testing, validation, and data policy
+- [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — contribution workflow (see also [docs/CONTRIBUTION.md](docs/CONTRIBUTION.md) for the full handbook)
 
 ## License and attribution
 
