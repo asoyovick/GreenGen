@@ -39,15 +39,15 @@ func (a ServiceAdapter) Submit(ctx context.Context, executionID, investigationID
 	return acc.EngineJobReference, status, nil
 }
 
-func (a ServiceAdapter) GetStatus(ctx context.Context, executionID string) (string, string, string, error) {
+func (a ServiceAdapter) GetStatus(ctx context.Context, executionID string) (string, string, string, map[string]any, error) {
 	st, err := a.Client.GetStatus(ctx, executionID)
 	if err != nil {
-		return "", "ENGINE_STATUS_UNAVAILABLE", err.Error(), err
+		return "", "ENGINE_STATUS_UNAVAILABLE", err.Error(), nil, err
 	}
 	errCode, _ := st.Raw["error_code"].(string)
 	errMsg := st.Error
 	if errMsg == "" {
 		errMsg, _ = st.Raw["error_message"].(string)
 	}
-	return st.Status, errCode, errMsg, nil
+	return st.Status, errCode, errMsg, st.Results, nil
 }

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -80,6 +81,21 @@ func (h *ExecutionHandler) GetResults(w http.ResponseWriter, r *http.Request, id
 		writeError(w, "NOT_FOUND", "Execution not found.", map[string]any{"id": id})
 		return
 	}
+	if res, ok, _ := h.svc.GetResult(r.Context(), id); ok {
+		resp := map[string]any{
+			"execution_id": id,
+			"execution":    ex,
+			"result":       res.Raw,
+			"provenance":   res.Provenance,
+			"quality":      res.Quality,
+			"synthetic":    res.Synthetic,
+		}
+		if res.Synthetic {
+			resp["warning"] = "SYNTHETIC/UNVERIFIED TEST DATA - not NASA observations and not real scientific results."
+		}
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
 	writeJSON(w, http.StatusConflict, map[string]any{
 		"error": map[string]any{
 			"code":    "RESULTS_UNAVAILABLE",
@@ -98,6 +114,25 @@ func (h *ExecutionHandler) GetSummary(w http.ResponseWriter, r *http.Request, id
 	}
 	if !ok {
 		writeError(w, "NOT_FOUND", "Execution not found.", map[string]any{"id": id})
+		return
+	}
+	if res, ok, _ := h.svc.GetResult(r.Context(), id); ok {
+		summary := map[string]any{
+			"status":       ex.Status,
+			"execution_id": id,
+			"provenance":   res.Provenance,
+			"synthetic":    res.Synthetic,
+			"run_metadata": res.Raw["run_metadata"],
+			"cells_count":  0,
+			"warning":      nil,
+		}
+		if cells, ok := res.Raw["cells"].([]any); ok {
+			summary["cells_count"] = len(cells)
+		}
+		if res.Synthetic {
+			summary["warning"] = "SYNTHETIC/UNVERIFIED TEST DATA - not NASA observations and not real scientific results."
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"execution": ex, "summary": summary, "provenance": res.Provenance, "synthetic": res.Synthetic})
 		return
 	}
 	writeJSON(w, http.StatusConflict, map[string]any{
@@ -120,6 +155,24 @@ func (h *ExecutionHandler) GetCell(w http.ResponseWriter, r *http.Request, id, c
 		writeError(w, "NOT_FOUND", "Execution not found.", map[string]any{"id": id})
 		return
 	}
+	if res, ok, _ := h.svc.GetResult(r.Context(), id); ok {
+		if cells, ok := res.Raw["cells"].([]any); ok {
+			for _, c := range cells {
+				if cm, ok := c.(map[string]any); ok {
+					if fmt.Sprint(cm["cell_id"]) == cellID {
+						resp := map[string]any{"execution": ex, "cell": cm, "provenance": res.Provenance, "synthetic": res.Synthetic}
+						if res.Synthetic {
+							resp["warning"] = "SYNTHETIC/UNVERIFIED TEST DATA - not NASA observations and not real scientific results."
+						}
+						writeJSON(w, http.StatusOK, resp)
+						return
+					}
+				}
+			}
+		}
+		writeError(w, "NOT_FOUND", "Cell not found in execution results.", map[string]any{"execution_id": id, "cell_id": cellID})
+		return
+	}
 	writeJSON(w, http.StatusConflict, map[string]any{
 		"error": map[string]any{
 			"code":    "CELL_RESULTS_UNAVAILABLE",
@@ -138,6 +191,26 @@ func (h *ExecutionHandler) GetReport(w http.ResponseWriter, r *http.Request, id 
 	}
 	if !ok {
 		writeError(w, "NOT_FOUND", "Execution not found.", map[string]any{"id": id})
+		return
+	}
+	if res, ok, _ := h.svc.GetResult(r.Context(), id); ok {
+		report := map[string]any{
+			"execution_id": id,
+			"status":       "available",
+			"format":       "json",
+			"synthetic":    res.Synthetic,
+			"provenance":   res.Provenance,
+			"run_metadata": res.Raw["run_metadata"],
+			"summary":      map[string]any{},
+			"results_ref":  map[string]any{"type": "inline", "note": "Full grid/cell details available via results endpoints; report export formats TBD."},
+		}
+		if res.Synthetic {
+			report["warning"] = "SYNTHETIC/UNVERIFIED TEST DATA - not NASA observations and not real scientific results."
+		}
+		if cells, ok := res.Raw["cells"].([]any); ok {
+			report["summary"] = map[string]any{"cells_count": len(cells)}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"execution": ex, "report": report, "available": true})
 		return
 	}
 	writeJSON(w, http.StatusConflict, map[string]any{

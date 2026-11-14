@@ -52,7 +52,7 @@ type AnalysisStatus struct {
 	Status  string         `json:"status"`
 	Error   string         `json:"error,omitempty"`
 	Raw     map[string]any `json:"raw,omitempty"`
-	Results any            `json:"results,omitempty"`
+	Results map[string]any `json:"results,omitempty"`
 }
 
 type UnavailableClient struct{ Reason string }
@@ -144,6 +144,12 @@ func (c *HTTPClient) GetStatus(ctx context.Context, executionID string) (*Analys
 	st := &AnalysisStatus{Raw: raw}
 	if v, ok := raw["status"].(string); ok {
 		st.Status = v
+	}
+	if v, ok := raw["error"].(string); ok {
+		st.Error = v
+	}
+	if v, ok := raw["results"].(map[string]any); ok {
+		st.Results = v
 	}
 	return st, nil
 }

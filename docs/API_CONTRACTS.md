@@ -129,15 +129,18 @@ Per-cell results must support all MVP measurements:
 - `GET /api/v1/executions/{id}` → `200 {"execution": {...}}` or `404 NOT_FOUND`
 - `POST /api/v1/executions/{id}/refresh` → `200 {"execution": {...}, "message": "..."}` or `404` (best-effort engine status sync; **completed not auto-applied without verified result ingestion**)
 
-### 4.4 Results and reports (honest unavailable states)
-- `GET /api/v1/executions/{id}/results` → `409 {"error":{"code":"RESULTS_UNAVAILABLE",...},"execution":{...}}` when no verified results exist, or `404` if execution missing
-- `GET /api/v1/executions/{id}/summary` → `409 {"error":{"code":"SUMMARY_UNAVAILABLE",...},"execution":{...}}` or `404`
-- `GET /api/v1/executions/{id}/cells/{cellId}` → `409 {"error":{"code":"CELL_RESULTS_UNAVAILABLE",...},"execution":{...}}` or `404`
-- `GET /api/v1/executions/{id}/report` → `409 {"error":{"code":"REPORT_UNAVAILABLE",...},"execution":{...}}` or `404`
-- **Note:** verified result ingestion/persistence and final payload formats (grid/GeoJSON/tiles, cell time series, report exports) are pending agreed contracts and real engine/data outputs (#031/#034/#041/#043/#046/#048).
+### 4.4 Results and reports (implemented draft, integrity-preserving)
+- `GET /api/v1/executions/{id}/results` → `200` with stored result payload/provenance when ingested, else `409 {"error":{"code":"RESULTS_UNAVAILABLE",...},"execution":{...}}` or `404`
+- `GET /api/v1/executions/{id}/summary` → `200` with derived summary/provenance when results ingested, else `409 SUMMARY_UNAVAILABLE` or `404`
+- `GET /api/v1/executions/{id}/cells/{cellId}` → `200` with matched cell/provenance when present, `404` if cell missing in ingested results, or `409 CELL_RESULTS_UNAVAILABLE` if no results ingested
+- `GET /api/v1/executions/{id}/report` → `200` with draft JSON report/provenance when results ingested, else `409 REPORT_UNAVAILABLE` or `404`
+- **Provenance/integrity:** ingested results include `provenance` and `synthetic` flags. Synthetic/mock or unverified test data is returned with explicit warnings and must never be presented as NASA observations/real scientific results. Final payload formats (grid/GeoJSON/tiles, full time series, export formats) remain subject to team agreement (#041/#043/#046/#048).
 
 ### 4.5 Execution statuses (implemented)
-`pending | queued | running | completed | failed` (state transitions enforced in service/store; `completed` requires verified result ingestion path — not fabricated by refresh). Initial submission without engine → `failed` (`ENGINE_UNAVAILABLE`); with engine submit accepted → `queued` (draft).
+`pending | queued | running | completed | failed`.
+- Submission without engine → `failed` (`ENGINE_UNAVAILABLE`); engine submit accepted → `queued`.
+- Refresh performs best-effort engine sync for non-terminal states. `completed` is set when results are ingested/persisted (with provenance/synthetic labelling as applicable); auto-completion without ingested results is not performed.
+- **Real-science finalization:** for production NASA analyses, ingestion must enforce verified provenance and agreed scientific output contracts before serving as finalized scientific results.
 
 
 ### 4.3 Legend/classification semantics (frontend-backend-engine alignment)

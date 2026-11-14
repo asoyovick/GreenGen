@@ -57,3 +57,15 @@ type Job struct {
 	CreatedAt              time.Time       `json:"created_at"`
 	UpdatedAt              time.Time       `json:"updated_at"`
 }
+
+type ExecutionResult struct {
+	ExecutionID string         `json:"execution_id"`
+	Status      string         `json:"status,omitempty"` // available|unavailable|partial
+	Summary     map[string]any `json:"summary,omitempty"`
+	Provenance  map[string]any `json:"provenance,omitempty"`
+	Quality     map[string]any `json:"quality,omitempty"`
+	Raw         map[string]any `json:"raw,omitempty"` // stored engine payload/reference (may be synthetic-labelled)
+	Synthetic   bool           `json:"synthetic,omitempty"`
+	CreatedAt   time.Time      `json:"created_at,omitempty"`
+	UpdatedAt   time.Time      `json:"updated_at,omitempty"`
+}

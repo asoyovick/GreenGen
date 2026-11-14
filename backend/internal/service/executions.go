@@ -12,7 +12,7 @@ import (
 
 type Engine interface {
 	Submit(ctx context.Context, executionID, investigationID string, req ExecutionRequest, dataset map[string]any) (engineJobRef string, status string, err error)
-	GetStatus(ctx context.Context, executionID string) (status string, errCode string, errMsg string, err error)
+	GetStatus(ctx context.Context, executionID string) (status string, errCode string, errMsg string, results map[string]any, err error)
 }
 
 type ExecutionService struct {
@@ -127,6 +127,13 @@ func (s *ExecutionService) Get(ctx context.Context, id string) (domain.Investiga
 	return s.store.Get(ctx, id)
 }
 
+func (s *ExecutionService) GetResult(ctx context.Context, id string) (domain.ExecutionResult, bool, error) {
+	if s.store == nil || !s.store.Available() {
+		return domain.ExecutionResult{}, false, nil
+	}
+	return s.store.GetResult(ctx, id)
+}
+
 func mapEngineStatus(status string) (domain.ExecutionStatus, bool) {
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case "pending":
@@ -161,19 +168,44 @@ func (s *ExecutionService) Refresh(ctx context.Context, id string) (domain.Inves
 	if s.EngineTimeout > 0 {
 		refreshCtx, cancel = context.WithTimeout(ctx, s.EngineTimeout)
 	}
-	st, errCode, errMsg, engErr := s.engine.GetStatus(refreshCtx, id)
+	st, errCode, errMsg, results, engErr := s.engine.GetStatus(refreshCtx, id)
 	cancel()
 	if engErr != nil {
 		return ex, true, nil // keep current state; sync best-effort
 	}
 	mapped, ok := mapEngineStatus(st)
+	// Result ingestion (draft): if engine provides results, store them with provenance.
+	// Synthetic/unverified results must be clearly labelled and must not be presented as real NASA observations.
+	if len(results) > 0 {
+		synthetic, _ := results["synthetic"].(bool)
+		prov := map[string]any{"source": "engine", "synthetic": synthetic}
+		if synthetic {
+			prov["warning"] = "SYNTHETIC/UNVERIFIED TEST DATA - not NASA observations and not real scientific results"
+		}
+		_ = s.store.SaveResult(ctx, domain.ExecutionResult{
+			ExecutionID: id,
+			Status:      "available",
+			Raw:         results,
+			Provenance:  prov,
+			Synthetic:   synthetic,
+			Summary:     map[string]any{},
+		})
+		// If results are ingested and engine reports completed, mark completed.
+		// NOTE: for real NASA results, verified ingestion/provenance rules must be enforced per agreed contracts.
+		if mapped == domain.ExecutionCompleted || strings.EqualFold(strings.TrimSpace(st), "completed") {
+			_ = s.store.UpdateStatus(ctx, id, domain.ExecutionCompleted, "", "", "")
+			if updated, ok, _ := s.store.Get(ctx, id); ok {
+				return updated, true, nil
+			}
+			ex.Status = domain.ExecutionCompleted
+			return ex, true, nil
+		}
+	}
 	if !ok || mapped == ex.Status {
 		return ex, true, nil
 	}
-	// Do not mark completed here without verified results integration; treat as running/failed/pending/queued only
-	// unless explicitly failed. Completed requires result persistence/verification path (future #015/#041/#043).
+	// Without ingested results, do not mark completed.
 	if mapped == domain.ExecutionCompleted {
-		// keep as running/queued until result ingestion is implemented
 		return ex, true, nil
 	}
 	_ = s.store.UpdateStatus(ctx, id, mapped, errCode, errMsg, "")

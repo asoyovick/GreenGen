@@ -19,6 +19,8 @@ type ExecutionStore interface {
 	Get(ctx context.Context, id string) (domain.InvestigationExecution, bool, error)
 	GetByIdempotencyKey(ctx context.Context, key string) (domain.InvestigationExecution, bool, error)
 	UpdateStatus(ctx context.Context, id string, status domain.ExecutionStatus, errCode, errMsg, engineJobRef string) error
+	SaveResult(ctx context.Context, res domain.ExecutionResult) error
+	GetResult(ctx context.Context, executionID string) (domain.ExecutionResult, bool, error)
 }
 
 type DBExecutionStore struct {
@@ -223,15 +225,81 @@ WHERE investigation_execution_id::text=$1
 	return tx.Commit()
 }
 
+func (s *DBExecutionStore) SaveResult(ctx context.Context, res domain.ExecutionResult) error {
+	if !s.Available() {
+		return fmt.Errorf("database not configured")
+	}
+	raw, _ := json.Marshal(res.Raw)
+	prov, _ := json.Marshal(res.Provenance)
+	summary, _ := json.Marshal(res.Summary)
+	quality, _ := json.Marshal(res.Quality)
+	_, err := s.db.ExecContext(ctx, `
+INSERT INTO analysis_results (investigation_execution_id, result_type, status, summary, provenance, quality, updated_at)
+SELECT id, 'grid_analysis', $2, $3::jsonb, $4::jsonb, $5::jsonb, NOW()
+FROM investigation_executions WHERE id::text=$1
+ON CONFLICT (investigation_execution_id) DO UPDATE SET
+  status=EXCLUDED.status, summary=EXCLUDED.summary, provenance=EXCLUDED.provenance, quality=EXCLUDED.quality, updated_at=NOW()
+`, res.ExecutionID, nonEmpty(res.Status, "available"), string(summary), string(prov), string(quality))
+	// store raw payload in summary/provenance context is limited; keep raw in provenance if needed? schema lacks raw column.
+	// For draft, include raw in provenance under "engine_payload" when size reasonable.
+	if err == nil && len(raw) > 0 {
+		_, _ = s.db.ExecContext(ctx, `
+UPDATE analysis_results SET provenance = provenance || jsonb_build_object('engine_payload', $2::jsonb)
+WHERE investigation_execution_id = (SELECT id FROM investigation_executions WHERE id::text=$1)
+`, res.ExecutionID, string(raw))
+	}
+	return err
+}
+
+func (s *DBExecutionStore) GetResult(ctx context.Context, executionID string) (domain.ExecutionResult, bool, error) {
+	if !s.Available() {
+		return domain.ExecutionResult{}, false, fmt.Errorf("database not configured")
+	}
+	row := s.db.QueryRowContext(ctx, `
+SELECT ar.status, ar.summary, ar.provenance, ar.quality, ar.created_at, ar.updated_at, e.id::text
+FROM analysis_results ar
+JOIN investigation_executions e ON e.id = ar.investigation_execution_id
+WHERE e.id::text=$1
+LIMIT 1`, executionID)
+	var r domain.ExecutionResult
+	var summary, prov, quality []byte
+	var createdAt, updatedAt sql.NullTime
+	if err := row.Scan(&r.Status, &summary, &prov, &quality, &createdAt, &updatedAt, &r.ExecutionID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.ExecutionResult{}, false, nil
+		}
+		return domain.ExecutionResult{}, false, err
+	}
+	_ = json.Unmarshal(summary, &r.Summary)
+	_ = json.Unmarshal(prov, &r.Provenance)
+	_ = json.Unmarshal(quality, &r.Quality)
+	if r.Provenance != nil {
+		if v, ok := r.Provenance["synthetic"].(bool); ok {
+			r.Synthetic = v
+		}
+		if raw, ok := r.Provenance["engine_payload"].(map[string]any); ok {
+			r.Raw = raw
+		}
+	}
+	if createdAt.Valid {
+		r.CreatedAt = createdAt.Time
+	}
+	if updatedAt.Valid {
+		r.UpdatedAt = updatedAt.Time
+	}
+	return r, true, nil
+}
+
 type MemoryExecutionStore struct {
 	mu          sync.RWMutex
 	items       map[string]domain.InvestigationExecution
+	results     map[string]domain.ExecutionResult
 	idempotency map[string]string // key -> execution id
 	seq         int
 }
 
 func NewMemoryExecutionStore() *MemoryExecutionStore {
-	return &MemoryExecutionStore{items: map[string]domain.InvestigationExecution{}, idempotency: map[string]string{}}
+	return &MemoryExecutionStore{items: map[string]domain.InvestigationExecution{}, results: map[string]domain.ExecutionResult{}, idempotency: map[string]string{}}
 }
 
 func (s *MemoryExecutionStore) Available() bool { return s != nil }
@@ -303,6 +371,25 @@ func (s *MemoryExecutionStore) UpdateStatus(_ context.Context, id string, status
 	return nil
 }
 
+func (s *MemoryExecutionStore) SaveResult(_ context.Context, res domain.ExecutionResult) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now().UTC()
+	if res.CreatedAt.IsZero() {
+		res.CreatedAt = now
+	}
+	res.UpdatedAt = now
+	s.results[res.ExecutionID] = res
+	return nil
+}
+
+func (s *MemoryExecutionStore) GetResult(_ context.Context, executionID string) (domain.ExecutionResult, bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	r, ok := s.results[executionID]
+	return r, ok, nil
+}
+
 func nullIfEmpty(s string) any {
 	if s == "" {
 		return nil
@@ -315,6 +402,13 @@ func ptrString(p *string) string {
 		return ""
 	}
 	return *p
+}
+
+func nonEmpty(v, fallback string) string {
+	if strings.TrimSpace(v) == "" {
+		return fallback
+	}
+	return v
 }
 
 type ExecutionRequestPayload struct {

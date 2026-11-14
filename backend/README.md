@@ -66,15 +66,23 @@ DATABASE_URL='postgres://user:pass@localhost:5432/greengen?sslmode=disable' AUTO
 - `POST /api/v1/executions` — submit execution (validated; creates/stores execution state, no fabricated results; `Idempotency-Key`/`X-Idempotency-Key` supported draft)
 - `GET /api/v1/executions/{id}` — execution status
 - `POST /api/v1/executions/{id}/refresh` — draft engine status sync (safe; no fabricated completion without verified result ingestion)
-- `GET /api/v1/executions/{id}/results` — returns explicit unavailable state if no verified results
-- `GET /api/v1/executions/{id}/summary` — explicit unavailable if no verified results/summary
-- `GET /api/v1/executions/{id}/cells/{cellId}` — explicit unavailable if no verified cell results
-- `GET /api/v1/executions/{id}/report` — explicit unavailable if no verified report
+- `GET /api/v1/executions/{id}/results` — returns ingested results with provenance/synthetic labelling, or explicit unavailable state
+- `GET /api/v1/executions/{id}/summary` — derived summary when results ingested, else unavailable
+- `GET /api/v1/executions/{id}/cells/{cellId}` — cell result when ingested, else unavailable/not found
+- `GET /api/v1/executions/{id}/report` — draft JSON report when results ingested, else unavailable
 
 ## Database migrations (#003)
 - `000001_init_schema.up.sql` / `.down.sql` — core PostGIS schema and seed
 - `000002_execution_idempotency.up.sql` / `.down.sql` — draft idempotency key
 Apply with your preferred tool or `AUTO_MIGRATE=true`. Review `backend/docs/DATABASE_SCHEMA.md` before applying in shared environments.
+
+## Local integration stack (dev/test)
+```bash
+docker compose up --build
+# backend: http://localhost:8080, mock engine (synthetic): http://localhost:8090, PostGIS: localhost:5432
+# serve frontend: python -m http.server 5174 -d frontend-vanilla
+```
+Mock engine returns **SYNTHETIC/UNVERIFIED** test data only (not NASA observations).
 
 ## Testing
 ```bash
@@ -82,6 +90,8 @@ cd backend
 go test ./...
 ```
 Current automated coverage includes config, service validation/execution behavior, repository in-memory execution store, and handler/API integration tests (httptest). DB/PostGIS and engine contract integration tests require appropriate environments and finalized contracts.
+
+Synthetic E2E workflow (mock engine + backend with `ALLOW_PLANNED_EXECUTIONS=true`) validates submit → queued → refresh/status sync → ingested synthetic-labelled results/summary/cells/report. Real NASA/scientific finalization requires verified data/engine outputs and team-agreed contracts.
 
 ## Notes
 - Scientific calculations are performed by the Python scientific engine/service (not reimplemented in Go).
