@@ -40,7 +40,7 @@ Implements scientific processing for precipitation trend investigations (MVP: IN
 ## Run
 ```bash
 # from repo root (with dependencies installed)
-PYTHONPATH=. uvicorn scientific_engine.service:app --host 0.0.0.0 --port 8090
+PYTHONPATH=. python -m scientific_engine
 # or
 PYTHONPATH=. python -m uvicorn scientific_engine.service:app --host 0.0.0.0 --port 8090
 ```

@@ -107,8 +107,25 @@ func (s *InvestigationService) ValidateExecutionRequest(ctx context.Context, req
 		return issues, nil
 	}
 	if inv.AvailabilityStatus != "available" {
-		issues = append(issues, ValidationIssue{Field: "investigation_id", Issue: fmt.Sprintf("investigation is not available for execution (status: %s)", inv.AvailabilityStatus)})
+		// Controlled integration path: allow execution requests that explicitly provide a verified observation
+		// reference for engine processing (no synthetic data). This does not mark investigations as operational.
+		observationRef := ""
+		if req.Options != nil {
+			if v, ok := req.Options["observation_ref"].(string); ok {
+				observationRef = strings.TrimSpace(v)
+			}
+		}
+		if observationRef == "" {
+			issues = append(issues, ValidationIssue{Field: "investigation_id", Issue: fmt.Sprintf("investigation is not available for execution (status: %s)", inv.AvailabilityStatus)})
+		}
 	}
+	observationRefProvided := false
+	if req.Options != nil {
+		if v, ok := req.Options["observation_ref"].(string); ok && strings.TrimSpace(v) != "" {
+			observationRefProvided = true
+		}
+	}
+
 	if req.Bounds == nil {
 		issues = append(issues, ValidationIssue{Field: "bounds", Issue: "required"})
 	} else {
@@ -118,11 +135,15 @@ func (s *InvestigationService) ValidateExecutionRequest(ctx context.Context, req
 		if req.Bounds.MinLat < -90 || req.Bounds.MaxLat > 90 || req.Bounds.MinLat > req.Bounds.MaxLat {
 			issues = append(issues, ValidationIssue{Field: "bounds", Issue: "invalid latitude range"})
 		}
-		// Draft investigation-scoped constraint checks (when metadata provides suggested bounds)
-		if sg, ok := inv.SupportedGeographical["suggested_bounds"].(map[string]any); ok {
-			if sb, ok2 := toBounds(sg); ok2 {
-				if req.Bounds.MinLon < sb.MinLon || req.Bounds.MinLat < sb.MinLat || req.Bounds.MaxLon > sb.MaxLon || req.Bounds.MaxLat > sb.MaxLat {
-					issues = append(issues, ValidationIssue{Field: "bounds", Issue: "outside supported investigation bounds (draft constraints)"})
+		// Draft investigation-scoped constraint checks (when metadata provides suggested bounds).
+		// For explicit observation-driven integration requests, suggested bounds are treated as advisory
+		// (actual support depends on verified observation coverage and engine processing).
+		if !observationRefProvided {
+			if sg, ok := inv.SupportedGeographical["suggested_bounds"].(map[string]any); ok {
+				if sb, ok2 := toBounds(sg); ok2 {
+					if req.Bounds.MinLon < sb.MinLon || req.Bounds.MinLat < sb.MinLat || req.Bounds.MaxLon > sb.MaxLon || req.Bounds.MaxLat > sb.MaxLat {
+						issues = append(issues, ValidationIssue{Field: "bounds", Issue: "outside supported investigation bounds (draft constraints)"})
+					}
 				}
 			}
 		}
@@ -142,13 +163,15 @@ func (s *InvestigationService) ValidateExecutionRequest(ctx context.Context, req
 			if start.After(end) {
 				issues = append(issues, ValidationIssue{Field: "period", Issue: "start must be <= end"})
 			}
-			if st, ok := inv.SupportedTemporal["suggested_period"].(map[string]any); ok {
-				if sp, ok2 := toPeriod(st); ok2 {
-					ps, e1 := time.Parse("2006-01-02", sp.Start)
-					pe, e2 := time.Parse("2006-01-02", sp.End)
-					if e1 == nil && e2 == nil {
-						if start.Before(ps) || end.After(pe) {
-							issues = append(issues, ValidationIssue{Field: "period", Issue: "outside supported investigation period (draft constraints)"})
+			if !observationRefProvided {
+				if st, ok := inv.SupportedTemporal["suggested_period"].(map[string]any); ok {
+					if sp, ok2 := toPeriod(st); ok2 {
+						ps, e1 := time.Parse("2006-01-02", sp.Start)
+						pe, e2 := time.Parse("2006-01-02", sp.End)
+						if e1 == nil && e2 == nil {
+							if start.Before(ps) || end.After(pe) {
+								issues = append(issues, ValidationIssue{Field: "period", Issue: "outside supported investigation period (draft constraints)"})
+							}
 						}
 					}
 				}

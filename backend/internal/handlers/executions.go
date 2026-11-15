@@ -134,6 +134,9 @@ func (h *ExecutionHandler) GetSummary(w http.ResponseWriter, r *http.Request, id
 		if cells, ok := res.Raw["cells"].([]any); ok {
 			summary["cells_count"] = len(cells)
 		}
+		if engineSummary, ok := res.Raw["summary"].(map[string]any); ok {
+			summary["analysis"] = engineSummary
+		}
 		writeJSON(w, http.StatusOK, map[string]any{"execution": ex, "summary": summary, "provenance": res.Provenance})
 		return
 	}
@@ -206,11 +209,21 @@ func (h *ExecutionHandler) GetReport(w http.ResponseWriter, r *http.Request, id 
 			"format":       "json",
 			"provenance":   res.Provenance,
 			"run_metadata": res.Raw["run_metadata"],
-			"summary":      map[string]any{},
-			"results_ref":  map[string]any{"type": "inline", "note": "Full grid/cell details available via results endpoints; report export formats TBD."},
+			"summary":      res.Raw["summary"],
+			"results": map[string]any{
+				"cells_count": 0,
+				"note":        "Full grid/cell details available via results and cell endpoints; export formats TBD.",
+			},
+			"limitations": []string{
+				"Statistical significance does not imply causation or practical importance.",
+				"Non-significant trends do not imply stability/no change.",
+				"Results depend on validated input observations, completeness, and methodological assumptions.",
+			},
 		}
 		if cells, ok := res.Raw["cells"].([]any); ok {
-			report["summary"] = map[string]any{"cells_count": len(cells)}
+			if rm, ok := report["results"].(map[string]any); ok {
+				rm["cells_count"] = len(cells)
+			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"execution": ex, "report": report, "available": true})
 		return

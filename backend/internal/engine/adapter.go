@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"strings"
 
 	"github.com/asoyovick/GreenGen/backend/internal/service"
 )
@@ -20,10 +21,17 @@ func (a ServiceAdapter) Submit(ctx context.Context, executionID, investigationID
 	if req.Period != nil {
 		p = &Period{Start: req.Period.Start, End: req.Period.End}
 	}
+	observationRef := ""
+	if req.Options != nil {
+		if v, ok := req.Options["observation_ref"].(string); ok {
+			observationRef = strings.TrimSpace(v)
+		}
+	}
 	acc, err := a.Client.SubmitAnalysis(ctx, AnalysisRequest{
 		ExecutionID:     executionID,
 		InvestigationID: investigationID,
 		Dataset:         dataset,
+		ObservationRef:  observationRef,
 		Bounds:          b,
 		Period:          p,
 		Config:          req.Options,
