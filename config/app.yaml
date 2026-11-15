@@ -1,0 +1,51 @@
+# Application-wide settings. No synthetic data is used.
+mode: real
+grid:
+  resolution_deg: 0.5
+  # Web Mercator clip used for the map overlays
+  mercator_lat_limit: 85.0
+  overlay_height_px: 720
+period:
+  start: "2002-01"
+  end: "2024-12"
+analysis:
+  min_months: 9            # valid months needed for an annual anomaly
+  min_years: 10            # valid years needed for a trend
+  ok_years: 15             # fewer than this -> low_confidence
+  alpha: 0.05
+  fdr_method: fdr_bh
+  nearby_window_deg: 5.0
+paths:
+  data_raw: data/raw
+  data_cache: data/cache
+  layers_real: layers/real
+  overlays: layers/overlays
+
+variables:
+  precipitation:
+    display_name: Precipitation
+    unit: mm/month
+    surface: [land, ocean]
+    model_based: false
+    short_description: Monthly total precipitation.
+  vegetation:
+    display_name: Vegetation greenness (NDVI)
+    unit: NDVI
+    surface: [land]
+    model_based: false
+    short_description: Monthly NDVI, a unitless measure of vegetation greenness.
+  temperature:
+    display_name: Air temperature at 2 m
+    unit: degC
+    surface: [land, ocean]
+    model_based: true
+    short_description: Monthly mean 2 m air temperature from a reanalysis model.
+  water_storage:
+    display_name: Terrestrial water storage
+    unit: cm water equivalent
+    surface: [land]
+    model_based: false
+    short_description: Monthly anomaly in total land water storage (coarse resolution).
+
+real:
+  variables: [precipitation, vegetation, temperature, water_storage]

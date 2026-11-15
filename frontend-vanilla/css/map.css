@@ -1,0 +1,36 @@
+.map-shell {
+  position: relative;
+  min-height: 420px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #dce7e4;
+}
+#map, .map-canvas {
+  position: absolute;
+  inset: 0;
+}
+.map-overlay {
+  position: absolute;
+  z-index: 5;
+  background: rgba(255,255,255,0.96);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-3);
+}
+.map-overlay-legend { bottom: var(--space-3); left: var(--space-3); max-width: 260px; }
+.map-overlay-status { top: var(--space-3); left: var(--space-3); }
+.map-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+.map-panel h3 { margin-top: 0; }
+.map-selection-info { font-size: var(--font-size-sm); color: var(--color-text-muted); }
+
+@media (prefers-color-scheme: dark) {
+  .map-overlay { background: rgba(18,28,25,0.96); }
+  .map-shell { background: #14201d; }
+}

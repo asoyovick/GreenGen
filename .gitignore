@@ -1,0 +1,48 @@
+# Credentials - never commit
+.netrc
+.env
+.env.*
+!.env.example
+*.pem
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Data and generated products (rebuild with `make synthetic && make pipeline`)
+# Root-only: frontend/public/data holds the small, committed base-map geometry.
+/data/
+/layers/
+notebooks/*.ipynb_checkpoints/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# Supplied skill bundles are reference material, vendored copies live in src/skills/
+/nasa-earthdata-access/
+/earth-data-prep/
+/trend-significance/
+/change-report/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.log
+
+# Place-selection build inputs/outputs (large/generated)
+/data/places/
+
+# Go backend build artifacts
+/backend/api
+/backend/bin/
+/backend/tmp/
