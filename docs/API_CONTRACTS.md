@@ -52,9 +52,12 @@
 ## 3. Python analysis request/response (Go backend ↔ Scientific engine)
 **Owners:** Members 3 & 4 (finalize in #034/#016).
 
-### 3.1 Transport (to be agreed)
-- Option A: HTTP service (recommended for clear contracts/timeouts). Option B: CLI/worker invocation.  
-- **Decision placeholder:** record chosen protocol, base URL/command, auth (if any), and timeout/retry expectations here when agreed.
+### 3.1 Transport (draft, implementation-aligned)
+- **Selected (draft):** HTTP service (FastAPI). Go backend client targets `PYTHON_ENGINE_URL` with:
+  - `POST {base}/v1/analyses` (submit; returns `execution_id`/`engine_job_reference`, `status`)
+  - `GET {base}/v1/analyses/{id}` (status; includes `results` when completed)
+  - `GET {base}/health` (service health)
+- **Implemented in:** `scientific_engine/service.py` (draft). Auth, deployment topology, retries/backoff, and timeouts remain to be finalized with team/ops; Go backend applies request timeouts and explicit failure handling.
 
 ### 3.2 Request (proposed fields)
 - `execution_id` / correlation id
