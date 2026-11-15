@@ -1,6 +1,6 @@
 import { config } from "../config.js";
 import { getApiHealth, listInvestigations } from "../api/investigations.js";
-import { getLayers, getPointReport, getPointTimeseries, getVariables, submitExecution, getExecutionStatus, getExecutionSummary, refreshExecutionStatus } from "../api/analysis.js";
+import { getLayers, getPointReport, getPointTimeseries, getVariables, validateExecution, submitExecution, getExecutionStatus, getExecutionSummary, refreshExecutionStatus } from "../api/analysis.js";
 import { isEndpointMissing, isResultsUnavailable } from "../api/analysis.js";
 import { qs, clear, el, getParam } from "../utils/helpers.js";
 import { formatNumber, classificationLabel, statusLabel } from "../utils/formatting.js";
@@ -78,34 +78,72 @@ function selectedVar() {
   return sel?.value || "";
 }
 
+function normInvestigation(inv = {}) {
+  const availability = inv.availability || inv.availability_status || inv.status || "";
+  const coverage = inv.coverage || {
+    spatial: inv.supported_geographical_coverage || inv.spatial,
+    temporal: inv.supported_temporal_coverage || inv.temporal || inv.period,
+  };
+  return {
+    ...inv,
+    id: inv.id || inv.investigation_id || inv.key,
+    title: inv.title || inv.name || inv.display_name || inv.id,
+    question: inv.question || inv.scientific_question,
+    availability,
+    coverage,
+    variables: inv.variables || (inv.scientific_variable ? [inv.scientific_variable] : (inv.variable ? [inv.variable] : [])),
+    dataset: inv.dataset || (inv.dataset_name ? { name: inv.dataset_name } : null),
+  };
+}
+
 async function populateInvestigations() {
   const sel = qs("#investigation-select");
   if (!sel) return;
   try {
     const data = await listInvestigations();
-    const items = Array.isArray(data) ? data : (data?.investigations || []);
+    const items = (Array.isArray(data) ? data : (data?.investigations || [])).map(normInvestigation).filter(i => i && i.id);
     clear(sel);
-    sel.appendChild(el("option", { value: "", text: "Select an available variable/investigation" }));
+    sel.appendChild(el("option", { value: "", text: "Select an investigation/variable" }));
     if (!items.length) {
       sel.appendChild(el("option", { value: "", disabled: true, text: "No investigations available from backend" }));
       return;
     }
     items.forEach((inv) => {
-      const id = inv.id || inv.key || inv.title;
-      const label = inv.title || inv.display_name || id;
-      const available = ["available", "implemented", "active", "available_precomputed"].includes(String(inv.availability || inv.status || "").toLowerCase());
-      const opt = el("option", { value: id, text: `${label}${available ? "" : " (unavailable/planned)"}` });
+      const availability = String(inv.availability || "").toLowerCase();
+      const available = ["available", "implemented", "active", "available_precomputed"].includes(availability);
+      const opt = el("option", { value: inv.id, text: `${inv.title}${available ? "" : ` (${availability || "unavailable"})`}` });
       if (inv.variables?.[0]) opt.dataset.variable = inv.variables[0];
-      if (inv.coverage?.temporal || inv.period) opt.dataset.period = JSON.stringify(inv.coverage?.temporal || inv.period);
+      if (inv.coverage?.temporal) opt.dataset.period = JSON.stringify(inv.coverage.temporal);
+      if (inv.coverage?.spatial) opt.dataset.spatial = JSON.stringify(inv.coverage.spatial);
+      opt.dataset.availability = availability;
       sel.appendChild(opt);
     });
     const wanted = getParam("investigation");
     if (wanted) sel.value = wanted;
-    qs("#period-hint").textContent = data?.note ? `${qs("#period-hint").textContent} ${data.note}` : qs("#period-hint").textContent;
+    qs("#period-hint").textContent = data?.note ? String(data.note) : "Select a valid historical period within supported dataset coverage.";
+    updateSelectionHints();
   } catch (err) {
     clear(sel);
     sel.appendChild(el("option", { value: "", text: "Unable to load options (backend unavailable)" }));
     qs("#variable-hint").textContent = `Could not load backend capabilities: ${err.message}`;
+  }
+}
+
+function updateSelectionHints() {
+  const sel = qs("#investigation-select");
+  const opt = sel?.selectedOptions?.[0];
+  if (!opt || !opt.value) return;
+  const availability = opt.dataset.availability || "";
+  const hint = qs("#variable-hint");
+  if (hint) hint.textContent = ["available","implemented","active","available_precomputed"].includes(availability)
+    ? "This option is available per backend/prototype metadata. Results are shown only when provided by backend services."
+    : "This investigation is not available for execution. You can review details, but submission will be rejected by the backend.";
+  if (opt.dataset.period && qs("#period-hint")) {
+    try {
+      const p = JSON.parse(opt.dataset.period);
+      const txt = Array.isArray(p) ? p.join(" to ") : (typeof p === "string" ? p : JSON.stringify(p));
+      qs("#period-hint").textContent = `Coverage hint: ${txt}. Dates must be valid and within supported coverage.`;
+    } catch {}
   }
 }
 
@@ -246,61 +284,99 @@ document.addEventListener("DOMContentLoaded", async () => {
     setStatus("Ready. Configure and submit an investigation, or inspect precomputed results if available.", "info");
   });
 
+  qs("#investigation-select")?.addEventListener("change", updateSelectionHints);
+
   qs("#explore-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.currentTarget;
-    const errorsEl = qs("#form-errors"); clear(errorsEl);
+    const errorsEl = qs("#form-errors"); if (errorsEl) errorsEl.textContent = "";
     const investigation = form.investigation.value;
     const start = form.start.value;
     const end = form.end.value;
     const { valid, errors } = validateDateRange(start, end);
-    if (!investigation) errors.unshift({ field: "investigation", message: "Select an available investigation/variable." });
-    if (!valid || errors.length) { errorsEl.textContent = summarizeErrors(errors); return; }
+    if (!investigation) errors.unshift({ field: "investigation", message: "Select an investigation." });
+    if (!valid || errors.length) { if (errorsEl) errorsEl.textContent = summarizeErrors(errors); return; }
+
     // Backend contract expects bbox bounds {min_lon,min_lat,max_lon,max_lat}.
+    // Use selected point (small bbox) or Kenya default focus; do not claim unsupported coverage.
     const kenyaBounds = { min_lon: 33.9, min_lat: -4.7, max_lon: 41.9, max_lat: 5.5 };
     let bounds = kenyaBounds;
     if (selected && typeof selected.lat === "number" && typeof selected.lon === "number") {
       const d = 0.05;
       bounds = {
-        min_lon: Math.max(-180, selected.lon - d),
-        min_lat: Math.max(-90, selected.lat - d),
-        max_lon: Math.min(180, selected.lon + d),
-        max_lat: Math.min(90, selected.lat + d),
+        min_lon: Math.max(-180, Number((selected.lon - d).toFixed(6))),
+        min_lat: Math.max(-90, Number((selected.lat - d).toFixed(6))),
+        max_lon: Math.min(180, Number((selected.lon + d).toFixed(6))),
+        max_lat: Math.min(90, Number((selected.lat + d).toFixed(6))),
       };
-    } else if (form.region.value && form.region.value !== "kenya" && form.region.value !== "custom") {
-      // Unknown region preset: fall back to Kenya default focus (draft).
-      bounds = kenyaBounds;
+    } else if (form.region.value === "custom") {
+      if (errorsEl) errorsEl.textContent = "Select a point on the map for a custom area, or choose a supported region.";
+      return;
     }
     const payload = {
       investigation_id: investigation,
       bounds,
       period: { start, end },
     };
-    setStatus("Submitting investigation to backend…", "info");
-    qs("#run-btn").disabled = true;
+
+    setStatus("Validating investigation request…", "info");
+    const runBtn = qs("#run-btn");
+    if (runBtn) runBtn.disabled = true;
     try {
+      try {
+        const v = await validateExecution(payload);
+        if (v && v.valid === false) {
+          const issues = v.issues || v.error?.details || [];
+          const msg = Array.isArray(issues) && issues.length
+            ? issues.map(i => `${i.field || "field"}: ${i.issue || i.message || "invalid"}`).join("; ")
+            : (v.error?.message || "Validation failed.");
+          if (errorsEl) errorsEl.textContent = msg;
+          setStatus(`Request not valid: ${msg}`, "warning");
+          return;
+        }
+      } catch (verr) {
+        if (isEndpointMissing(verr)) {
+          // validation endpoint unavailable; continue and let submit report issues
+        } else if (verr?.status === 422 || verr?.status === 400) {
+          const details = verr?.data?.issues || verr?.data?.error?.details || verr?.details || [];
+          const msg = Array.isArray(details) && details.length
+            ? details.map(i => `${i.field || "field"}: ${i.issue || i.message || "invalid"}`).join("; ")
+            : verr.message;
+          if (errorsEl) errorsEl.textContent = msg;
+          setStatus(`Request not valid: ${msg}`, "warning");
+          return;
+        } else {
+          throw verr;
+        }
+      }
+
+      setStatus("Submitting investigation to backend…", "info");
       const res = await submitExecution(payload);
       const executionId = res?.execution_id || res?.id || res?.execution?.id;
       if (!executionId) {
         const msg = res?.error?.message || res?.message || "Backend did not return an execution identifier.";
         throw new Error(msg);
       }
-      if (res?.execution) {
-        setStatus(`Execution ${executionId}: ${statusLabel(res.execution.status || res.status)}${res.message ? ` — ${res.message}` : ""}`, (res.execution.status||res.status) === "failed" ? "error" : "info");
-      } else {
-        setStatus(`Execution submitted: ${executionId}. Tracking status…`, "info");
-      }
-      startPolling(executionId);
+      const ex = res?.execution || {};
+      const st = ex.status || res.status;
+      setStatus(`Execution ${executionId}: ${statusLabel(st)}${res.message ? ` — ${res.message}` : ""}`, st === "failed" ? "error" : "info");
+      const meta = qs("#execution-meta"); clear(meta);
+      [["Execution ID", executionId], ["Status", statusLabel(st)], ex.error_code ? ["Code", ex.error_code] : null, ex.error_message ? ["Message", ex.error_message] : null].filter(Boolean).forEach(([k,v]) => { meta.append(el("dt",{text:k}), el("dd",{text:String(v??"—")})); });
+      const link = el("a", { href: `./results.html?execution=${encodeURIComponent(executionId)}`, text: "Open results view", class: "btn btn-secondary", style: "margin-top:0.5rem;display:inline-block;" });
+      meta.append(el("dt",{text:"Results"}), el("dd",{},[link]));
+      if (st && !["failed","completed"].includes(st)) startPolling(executionId);
+      if (st === "completed") loadExecutionResults(executionId);
     } catch (err) {
       if (isEndpointMissing(err)) {
         setStatus("Execution API is not available on the connected backend. This frontend cannot simulate analysis; connect the Go backend execution endpoints or use available precomputed prototype views.", "warning");
       } else {
-        const details = err?.data?.error?.details;
-        const detailText = Array.isArray(details) ? ` (${details.map(d=>`${d.field||'field'}: ${d.issue||d.message||''}`).join('; ')})` : "";
+        const details = err?.data?.issues || err?.data?.error?.details || err?.details;
+        const detailText = Array.isArray(details) && details.length ? ` (${details.map(d=>`${d.field||'field'}: ${d.issue||d.message||''}`).join('; ')})` : "";
         setStatus(`Submission failed: ${err.message}${detailText}`, "error");
+        if (errorsEl && Array.isArray(details) && details.length) errorsEl.textContent = details.map(d=>`${d.field||'field'}: ${d.issue||d.message||''}`).join("; ");
       }
     } finally {
-      qs("#run-btn").disabled = false;
+      if (runBtn) runBtn.disabled = false;
     }
   });
 });

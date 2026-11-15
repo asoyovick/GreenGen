@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="greengen-api-base" content="" />
+  <meta name="greengen-api-prefix" content="/api" />
+  <title>Results — GreenGen</title>
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div id="global-status" class="banner" hidden></div>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true"></span><span>GreenGen</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">Menu</button>
+      <nav id="primary-nav" class="primary-nav" aria-label="Primary">
+        <ul>
+          <li><a href="../index.html">Home</a></li>
+          <li><a href="./investigations.html">Investigations</a></li>
+          <li><a href="./configure-investigation.html">Configure</a></li>
+          <li><a href="./results.html">Results</a></li>
+          <li><a href="./explore.html">Explore</a></li>
+          <li><a href="./reports.html">Reports</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  <main id="main" class="page-main">
+    <header class="page-hero" style="padding-top:1rem;">
+      <h1>Execution results</h1>
+      <p class="muted">Monitor investigation execution and explore verified scientific results returned by the backend. Unavailable or incomplete outputs are shown explicitly.</p>
+    </header>
+
+    <section class="panel stack">
+      <div class="inline-actions">
+        <label for="execution-id" class="visually-hidden">Execution ID</label>
+        <input id="execution-id" type="text" placeholder="Execution ID" style="max-width:360px;padding:0.55rem 0.65rem;border:1px solid var(--color-border);border-radius:var(--radius-sm);" />
+        <button id="load-execution" class="btn btn-secondary" type="button">Load</button>
+        <button id="refresh-execution" class="btn btn-secondary" type="button">Refresh status</button>
+        <a id="report-link" class="btn btn-secondary" href="./reports.html">Open report</a>
+      </div>
+      <div id="results-status" class="notice notice-info" role="status">Enter an execution ID to load status and available results.</div>
+    </section>
+
+    <div class="split" style="margin-top:1rem;">
+      <section class="stack">
+        <div class="panel">
+          <div class="inline-actions" style="justify-content:space-between;">
+            <h2 style="margin:0;font-size:1.1rem;">Geographical results map</h2>
+            <span id="results-map-mode" class="badge">Awaiting results</span>
+          </div>
+          <div class="map-shell" style="margin-top:0.75rem;">
+            <div id="results-map" class="map-canvas" aria-label="Results map"></div>
+            <div id="results-map-status" class="map-overlay map-overlay-status notice notice-info" hidden></div>
+            <div id="results-legend" class="map-overlay map-overlay-legend"></div>
+          </div>
+          <p class="field-hint" style="margin-top:0.5rem;">Grid-level rendering depends on the agreed backend results format. Only backend-provided classifications/values are displayed.</p>
+        </div>
+
+        <div class="panel chart-shell">
+          <h2 style="margin:0 0 0.5rem;font-size:1.1rem;">Historical observations / time series</h2>
+          <div id="results-chart-state" class="chart-empty">No backend-provided time-series data loaded for this execution/cell.</div>
+          <div class="chart-canvas-wrap" id="results-chart-wrap" hidden><canvas id="results-chart" aria-label="Results time series chart" role="img"></canvas></div>
+          <div id="results-chart-meta" class="chart-meta"></div>
+        </div>
+
+        <div class="panel">
+          <h2 style="margin-top:0;">Selected cell / details</h2>
+          <div class="inline-actions" style="margin-bottom:0.75rem;">
+            <label for="cell-id" class="visually-hidden">Cell ID</label>
+            <input id="cell-id" type="text" placeholder="Cell ID (optional)" style="max-width:240px;padding:0.5rem 0.6rem;border:1px solid var(--color-border);border-radius:var(--radius-sm);" />
+            <button id="load-cell" class="btn btn-secondary" type="button">Load cell</button>
+          </div>
+          <div id="cell-details" class="muted">No cell selected. If results include cell identifiers, enter one or select a rendered feature when supported.</div>
+        </div>
+      </section>
+
+      <aside class="stack">
+        <div class="panel"><h2 style="margin-top:0;">Execution status & timeline</h2><div id="execution-timeline"></div><div id="execution-meta" style="margin-top:0.75rem;"></div></div>
+        <div class="panel"><h2 style="margin-top:0;">Scientific summary & provenance</h2><div id="results-summary" class="muted">No summary loaded.</div></div>
+        <div class="panel"><h2 style="margin-top:0;">Results payload (when available)</h2><div id="results-data" class="muted">No results loaded.</div></div>
+      </aside>
+    </div>
+  </main>
+  <footer class="site-footer"><div class="footer-inner"><p><strong>GreenGen</strong> — Results, classifications, and statistics are displayed only as returned by verified backend outputs.</p></div></footer>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script type="module" src="../js/main.js"></script>
+  <script type="module" src="../js/pages/results.js"></script>
+</body>
+</html>

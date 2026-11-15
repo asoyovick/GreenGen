@@ -73,6 +73,12 @@
   font-size: var(--font-size-sm); font-weight: 600;
   background: var(--color-surface-alt); border: 1px solid var(--color-border);
 }
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.timeline-item { display: flex; align-items: center; gap: 0.5rem; font-size: var(--font-size-sm); }
+.timeline-dot { width: 10px; height: 10px; border-radius: 999px; background: var(--color-border); flex: 0 0 auto; }
+.timeline-item.is-done .timeline-dot { background: var(--color-success); }
+.timeline-item.is-active .timeline-dot { background: var(--color-accent); box-shadow: 0 0 0 3px rgba(29,78,216,0.15); }
+.timeline-item.is-failed .timeline-dot { background: var(--color-danger); }
 .spinner {
   width: 1rem; height: 1rem; border-radius: 50%;
   border: 2px solid var(--color-border); border-top-color: var(--color-primary);

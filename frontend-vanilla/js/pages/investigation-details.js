@@ -88,7 +88,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       section("Configure and execute", el("div", { class: "stack" }, [
         source === "prototype" ? el("p", { class: "notice notice-warning", text: "This view is based on precomputed prototype data, not a live execution workflow." }) : null,
         el("div", { class: "inline-actions" }, [
-          canExecute ? el("a", { class: "btn btn-primary", href: `./explore.html?investigation=${encodeURIComponent(inv.id || id)}`, text: "Configure and run investigation" }) : el("button", { class: "btn btn-secondary", type: "button", disabled: true, text: "Execution not available for this investigation" }),
+          canExecute ? el("a", { class: "btn btn-primary", href: `./configure-investigation.html?id=${encodeURIComponent(inv.id || id)}`, text: "Configure and run investigation" }) : el("button", { class: "btn btn-secondary", type: "button", disabled: true, text: "Execution not available for this investigation" }),
           el("a", { class: "btn btn-secondary", href: "./investigations.html", text: "Back to catalogue" }),
         ]),
       ])),

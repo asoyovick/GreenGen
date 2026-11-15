@@ -9,6 +9,10 @@ function withPrefix(prefix, path) {
 // Planned execution endpoints (draft). If unavailable, callers must show clear
 // unavailable state — never simulate success.
 
+export async function validateExecution(payload, opts = {}) {
+  return post(withPrefix(config.contractApiPrefix, "/executions/validate"), payload, opts);
+}
+
 export async function submitExecution(payload, opts = {}) {
   return post(withPrefix(config.contractApiPrefix, "/executions"), payload, opts);
 }
@@ -52,6 +56,6 @@ export function isEndpointMissing(err) {
 }
 
 export function isResultsUnavailable(err) {
-  const code = err?.data?.error?.code || err?.code;
+  const code = err?.data?.error?.code || err?.body?.error?.code || err?.code;
   return err?.status === 409 || /UNAVAILABLE/i.test(String(code || ""));
 }

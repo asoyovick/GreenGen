@@ -1,13 +1,14 @@
 import { apiUrl, config } from "../config.js";
 
 export class ApiError extends Error {
-  constructor(message, { status = 0, code = null, details = null, body = null, cause = null } = {}) {
+  constructor(message, { status = 0, code = null, details = null, body = null, data = null, cause = null } = {}) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.details = details;
     this.body = body;
+    this.data = data ?? body;
     this.cause = cause;
   }
 }
@@ -71,8 +72,8 @@ export async function request(path, { method = "GET", params, body, headers = {}
       detail?.message || (typeof payload?.detail === "string" && payload.detail) ||
       `Request failed with HTTP ${res.status}.`;
     const code = detail?.code || payload?.code || null;
-    const details = detail?.details || payload?.details || null;
-    throw new ApiError(message, { status: res.status, code, details, body: payload });
+    const details = detail?.details || payload?.details || payload?.issues || null;
+    throw new ApiError(message, { status: res.status, code, details, body: payload, data: payload });
   }
   return payload;
 }

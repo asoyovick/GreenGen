@@ -31,6 +31,7 @@ async function load(id, doRefresh = false) {
     statusEl.className = st?.status === "failed" ? "notice notice-error" : st?.status === "completed" ? "notice notice-success" : "notice notice-info";
     statusEl.textContent = `Execution ${id}: ${label}${st?.error_message ? ` — ${st.error_message}` : (res?.message ? ` — ${res.message}` : "")}`;
     details.append(el("h2", { text: "Execution details" }), renderMeta(st));
+    details.append(el("p", { style: "margin-top:0.75rem;" }, [el("a", { href: `./results.html?execution=${encodeURIComponent(id)}`, class: "btn btn-secondary", text: "Open results view" })]));
     if ((st?.status || st?.state) === "completed") {
       try {
         const sum = await getExecutionSummary(id);

@@ -46,16 +46,18 @@ export async function listInvestigations(opts = {}) {
 }
 
 export async function getInvestigation(id, opts = {}) {
+  let lastErr = null;
   try {
     return await get(withPrefix(config.contractApiPrefix, `/investigations/${encodeURIComponent(id)}`), opts);
   } catch (err) {
+    lastErr = err;
     if (!isNotFound(err) && !isUnavailable(err)) throw err;
   }
   const list = await listInvestigations(opts);
-  const items = list?.investigations || list || [];
+  const items = Array.isArray(list) ? list : (list?.investigations || []);
   const found = Array.isArray(items) ? items.find((x) => String(x.id) === String(id)) : null;
-  if (!found) throw errIfMissing(id);
-  return { source: list.source || "prototype", investigation: found };
+  if (!found) throw lastErr || errIfMissing(id);
+  return { source: list?.source || "prototype", investigation: found };
 }
 
 function errIfMissing(id) {
