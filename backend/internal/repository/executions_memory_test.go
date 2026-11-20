@@ -40,3 +40,28 @@ func TestMemoryExecutionStore_UpdateStatus(t *testing.T) {
 		t.Fatalf("expected queued, ok=%v status=%s", ok, got.Status)
 	}
 }
+
+func TestMemoryExecutionStore_ResultPersistence(t *testing.T) {
+	s := NewMemoryExecutionStore()
+	created, _ := s.Create(context.Background(), domain.InvestigationExecution{InvestigationID: "INV-TEST", Status: domain.ExecutionRunning}, &domain.Job{JobType: "analysis", Status: domain.ExecutionRunning}, map[string]any{})
+	res := domain.ExecutionResult{
+		ExecutionID: created.ID,
+		Status:      "available",
+		Raw:         map[string]any{"status": "completed", "cells": []any{map[string]any{"cell_id": "c1"}}},
+		Provenance:  map[string]any{"source": "engine", "synthetic": false},
+		Synthetic:   false,
+	}
+	if err := s.SaveResult(context.Background(), res); err != nil {
+		t.Fatalf("save result: %v", err)
+	}
+	got, ok, err := s.GetResult(context.Background(), created.ID)
+	if err != nil || !ok {
+		t.Fatalf("get result: ok=%v err=%v", ok, err)
+	}
+	if got.ExecutionID != created.ID || got.Synthetic {
+		t.Fatalf("unexpected result: %#v", got)
+	}
+	if got.Raw["status"] != "completed" {
+		t.Fatalf("expected raw status completed, got %#v", got.Raw["status"])
+	}
+}

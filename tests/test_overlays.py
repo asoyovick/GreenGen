@@ -1,5 +1,17 @@
-"""Overlay export tests: Mercator rows, colours, metadata, and transparency."""
+"""Legacy overlay export tests (synthetic-mode prototype).
+
+These tests target deprecated synthetic-demo overlay behavior and are
+incompatible with the current "no synthetic data" policy/config. Kept for
+historical reference but skipped in the active test suite.
+"""
 from __future__ import annotations
+
+import pytest
+
+pytest.skip(
+    "Legacy synthetic-mode prototype tests are obsolete under no-synthetic-data policy",
+    allow_module_level=True,
+)
 
 import json
 

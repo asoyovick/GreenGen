@@ -1,7 +1,8 @@
 # Testing Strategy
 
 **Purpose:** Define what is tested, how, by whom, and with what data so the team can deliver a reliable, scientifically defensible MVP (issue #050).  
-**Status:** Draft — to be agreed by all members; evolves with implementation.
+**Status:** Finalized (team testing strategy document; track agreement/revisions in git history/issues/PRs).  
+**Last updated:** 2026-11-20
 
 ## 1. Principles
 
@@ -31,43 +32,60 @@
 
 ## 4. Tools and commands (current + planned)
 
-> Update this section as components are added; keep commands runnable and documented.
+> Update this section as components evolve; keep commands runnable and documented.
 
-### Current prototype (Python/FastAPI + frontend)
-- **Python tests:** `make test` (runs `pytest -q` via `.venv`) or `python -m pytest -q`
-- **Frontend build check:** `cd frontend && npm run build`
-- **Pipeline (synthetic, no network):** `make synthetic && make pipeline`
-- **Real-data dry-run (CMR search only, no auth/download):** `python scripts/run_pipeline.py --real --dry-run`
-- **Earthdata verification:** `make verify-earthdata` (requires network/credentials as applicable)
+### Current (implemented in this repository)
+- **Python tests (repo root):** `PYTHONPATH=. .venv/bin/python -m pytest -q` (or `python -m pytest -q` in an activated environment with dependencies installed). Runs current Python/scientific-engine tests (e.g. `tests/test_scientific_engine.py`) and other active Python tests present.
+- **Scientific engine tests (targeted):** `PYTHONPATH=. .venv/bin/python -m pytest tests/test_scientific_engine.py -q`
+- **Scientific engine service (local):** `PYTHONPATH=. python -m scientific_engine` or `PYTHONPATH=. python -m uvicorn scientific_engine.service:app --host 0.0.0.0 --port 8090`
+- **Go backend tests:** `cd backend && go test ./...`
+- **Go backend (local):** `cd backend && go run ./cmd/api` (see `backend/README.md` for DB/env options)
+- **Frontend build check:** `cd frontend && npm run build` (Vite/React frontend currently present in `frontend/`)
+- **Integration stack (local, draft):** `docker compose up --build` (see root/backend docs; requires contract-compliant components/config)
 
-### Planned target components (to be added when implemented)
-- **Scientific engine:** `pytest` (or agreed runner) in `scientific-engine/` with unit + validation suites; deterministic reference comparisons recorded.
-- **Go backend:** `go test ./...` (plus integration tests with test DB/mocks as defined).
-- **Contract tests:** schema/spec checks run in CI or via a single documented command (e.g. `make test-contracts`) (#051).
-- **E2E:** agreed tool (e.g. Playwright/Cypress or API-driven workflow tests) against a test environment (#022).
+### Planned / to be finalized as components mature
+- **Contract tests:** schema/spec checks run in CI or via a single documented command (e.g. `make test-contracts`) (#051), covering Go API and Go↔Python request/response schemas.
+- **E2E tests:** agreed tool (e.g. Playwright/Cypress or API-driven workflow tests) against a test environment (#022).
+- **DB/PostGIS integration tests:** run against PostgreSQL+PostGIS with migrations applied (shared/CI environment as available).
+- **Scientific validation runs:** independent reference comparisons and real-data validation recorded with provenance (#021/#038/#052/#053).
 
-## 5. What must be tested (by area)
+> **Note:** Obsolete legacy prototype tests/scripts that depended on removed synthetic-data pipeline modules are not part of the active test suite. Active tests must follow the project rule: no synthetic data presented as real NASA observations/results.
 
-### Data integration (#004–#007, #030–#033, #052)
+## 5. What must be tested (by area / issue type)
+
+Each issue type has a stated test expectation. PRs should include/run the relevant checks for the areas they change.
+
+| Issue type / area | Minimum expected tests/checks | Related issues (examples) |
+|---|---|---|
+| **Data integration / NASA retrieval** | Automated tests for retrieval/subsetting/missing+quality handling/failure paths where feasible; real-data checks documented with provenance when credentials/environment available; no synthetic data presented as real observations | #004–#007, #030–#033, #052 |
+| **Scientific engine / statistics** | Unit tests for aggregation/statistics/classification; deterministic behavior with fixed inputs; independent/reference comparisons recorded for critical methods; controlled fixtures clearly labeled synthetic and never used as runtime results | #008–#013, #034–#039, #021, #038, #053 |
+| **Backend API / services** | Unit/service tests for validation and state transitions; handler/API tests for contracts and error states; integration tests for DB/persistence and Python engine client (mocked and/or real/local) as environments allow | #014–#016, #040–#045, #051 |
+| **Frontend / visualization** | Component/integration tests or reproducible manual checks for key flows, status/loading/error states, and rendering correctness; build/lint checks; accessibility/responsive checks for UI changes | #017–#020, #046–#049, #022 |
+| **Contracts / schemas** | Contract tests that fail on field/type/shape mismatches across Go API, Python engine schema, and frontend client usage | #026, #031, #034, #051 |
+| **Documentation / reproducibility / delivery** | Commands verified to run; reproducibility steps exercised on a clean environment when claimed; quality/validation evidence linked in docs/issues | #023, #039, #050, #053, #054, #056, #057 |
+
+### Area-specific expectations (detail)
+
+#### Data integration (#004–#007, #030–#033, #052)
 - Retrieval for known area/period (real, when credentials available) and reproducible sample extraction.
 - Spatial/temporal subsetting correctness vs source.
 - Missing values, quality flags, completeness, and failure handling.
 - Grid alignment preserved (no unintended resampling).
 
-### Scientific engine (#008–#013, #034–#039, #021/#038/#053)
+#### Scientific engine (#008–#013, #034–#039, #021/#038/#053)
 - Temporal aggregation (monthly/annual/seasonal) including incomplete periods.
 - Mann–Kendall and Sen's slope vs independent reference implementations/known datasets.
 - Confidence intervals, autocorrelation handling, multiple-testing/FDR behavior.
 - Classifications: significant increase/decrease, no significant trend, insufficient data, inconclusive.
 - Determinism and full metadata/provenance in outputs.
 
-### Backend (#014–#016, #040–#045, #051)
+#### Backend (#014–#016, #040–#045, #051)
 - Request validation, state transitions, idempotency/duplicate protection as designed.
 - Job lifecycle (queued/retrieving/analysing/completed/failed), timeouts/retries, error recording.
-- Persistence of results and provenance; API correctness, pagination/limits.
+- Persistence of results and provenance; API correctness, pagination/limits/filtering where specified.
 - Integration with Python service (mocked and, where possible, real/local).
 
-### Frontend (#017–#020, #046–#049, #022)
+#### Frontend (#017–#020, #046–#049, #022)
 - Investigation catalogue/config flows and validation feedback.
 - Status/progress, loading/empty/error states (no fabricated data).
 - Map rendering, legend semantics (non-significant ≠ stable), cell selection, charts/reports match API.
@@ -100,6 +118,8 @@
 - Produce scientific validation report and reproducibility procedures (#053/#054).
 - Run full quality assessment against MVP acceptance criteria (#057).
 
-## 10. Agreement
+## 10. Agreement and review
 
-This strategy is considered "agreed" when reviewed by all members (or recorded decision in the repo). Track revisions in git history and note major changes in PRs/issues.
+- This document defines the team testing strategy, test data policy, tools/commands, PR expectations, and per-issue-type test expectations required for #050.
+- Treat this as the baseline strategy for ongoing work; record team agreement/approvals and future revisions in git history, PR reviews, and/or a decision log entry when available.
+- **Scientific/methodology validation expectations** must be reviewed with the scientific analysis owner (Member 3) for analysis changes. Member 1 coordinates but does not approve statistical methods alone.
