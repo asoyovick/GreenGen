@@ -134,11 +134,14 @@ Per-cell results must support all MVP measurements:
 - `POST /api/v1/executions/{id}/refresh` → `200 {"execution": {...}, "message": "..."}` or `404` (best-effort engine status sync; **completed not auto-applied without verified result ingestion**)
 
 ### 4.4 Results and reports (implemented draft, integrity-preserving)
-- `GET /api/v1/executions/{id}/results` → `200` with stored result payload/provenance when verified results are ingested, else `409 {"error":{"code":"RESULTS_UNAVAILABLE",...},"execution":{...}}` or `404`
+- `GET /api/v1/executions/{id}/results` → `200` with stored result payload/provenance when verified, non-synthetic results are ingested, else `409 {"error":{"code":"RESULTS_UNAVAILABLE",...},"execution":{...}}` or `404`
+  - Query params (grid-level, when `result.cells` is present): `classification` (repeatable or comma-separated; values such as `significant_increase`, `significant_decrease`, `no_significant_trend`, `insufficient_data`, `inconclusive`), `limit` (default 1000, max 5000), `offset` (default 0)
+  - Response includes `pagination` metadata (`total`, `filtered_total`, `limit`, `offset`, `returned`, and `classification_filter` when applied); returned `result.cells` contains the filtered/paginated page
 - `GET /api/v1/executions/{id}/summary` → `200` with derived summary/provenance when results ingested, else `409 SUMMARY_UNAVAILABLE` or `404`
-- `GET /api/v1/executions/{id}/cells/{cellId}` → `200` with matched cell/provenance when present, `404` if cell missing in ingested results, or `409 CELL_RESULTS_UNAVAILABLE` if no results ingested
+- `GET /api/v1/executions/{id}/cells/{cellId}` → `200` with matched cell statistics/provenance when present, `404` if cell missing in ingested results, or `409 CELL_RESULTS_UNAVAILABLE` if no results ingested
+  - Response includes `time_series_available` and `cell.time_series` (`null` when unavailable). Per-cell time-series values are returned only when present in ingested, verified results (not fabricated).
 - `GET /api/v1/executions/{id}/report` → `200` with draft JSON report/provenance when results ingested, else `409 REPORT_UNAVAILABLE` or `404`
-- **Provenance/integrity:** no synthetic data is used. Synthetic results (if provided by any source) are rejected and not ingested/served. Ingested results must be from verified, contract-compliant sources; final payload formats (grid/GeoJSON/tiles, full time series, export formats) remain subject to team agreement (#041/#043/#046/#048).
+- **Provenance/integrity:** no synthetic data is used. Synthetic results (if provided by any source) are rejected and not ingested/served. Ingested results must be from verified, contract-compliant sources; final payload formats (grid/GeoJSON/tiles, richer export formats) remain subject to team agreement (#041/#043/#046/#048).
 
 ### 4.5 Execution statuses (implemented)
 `pending | queued | running | completed | failed`.

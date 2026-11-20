@@ -1,5 +1,17 @@
-"""API contract and edge-case tests on a controlled synthetic layer set."""
+"""Legacy prototype API tests (synthetic-mode).
+
+These tests target the deprecated synthetic-demo prototype behavior and are
+incompatible with the current "no synthetic data" policy/config. Kept for
+historical reference but skipped in the active test suite.
+"""
 from __future__ import annotations
+
+import pytest
+
+pytest.skip(
+    "Legacy synthetic-mode prototype tests are obsolete under no-synthetic-data policy",
+    allow_module_level=True,
+)
 
 
 def test_health_and_mode(client):

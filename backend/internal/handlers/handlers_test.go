@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/asoyovick/GreenGen/backend/internal/domain"
 	"github.com/asoyovick/GreenGen/backend/internal/repository"
 	"github.com/asoyovick/GreenGen/backend/internal/routes"
 	"github.com/asoyovick/GreenGen/backend/internal/service"
@@ -105,5 +106,85 @@ func TestRefreshNotFound(t *testing.T) {
 	r.ServeHTTP(w, req)
 	if w.Code != 404 {
 		t.Fatalf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestResultsSummaryCellReport_WithIngestedResults(t *testing.T) {
+	invRepo := repository.NewInvestigationRepository(nil)
+	invSvc := service.NewInvestigationService(invRepo)
+	store := repository.NewMemoryExecutionStore()
+	execSvc := service.NewExecutionService(invSvc, store, nil)
+	r := routes.NewRouter(routes.Services{Investigations: invSvc, Executions: execSvc, DB: nil})
+
+	ctx := httptest.NewRequest(http.MethodGet, "/", nil).Context()
+	created, err := store.Create(ctx, domain.InvestigationExecution{
+		InvestigationID: "INV-TEST",
+		Status:          domain.ExecutionQueued,
+	}, &domain.Job{JobType: "analysis", Status: domain.ExecutionQueued}, map[string]any{})
+	if err != nil {
+		t.Fatalf("create exec: %v", err)
+	}
+	raw := map[string]any{
+		"status": "completed",
+		"cells": []any{
+			map[string]any{"cell_id": "c1", "classification": "significant_increase", "n_observations": 120},
+			map[string]any{"cell_id": "c2", "classification": "no_significant_trend", "n_observations": 120},
+			map[string]any{"cell_id": "c3", "classification": "significant_decrease", "n_observations": 120},
+		},
+		"summary":      map[string]any{"cells_total": 3},
+		"run_metadata": map[string]any{"engine_version": "0.1.0-draft"},
+	}
+	if err := store.SaveResult(ctx, domain.ExecutionResult{
+		ExecutionID: created.ID,
+		Status:      "available",
+		Raw:         raw,
+		Provenance:  map[string]any{"source": "engine", "synthetic": false},
+		Synthetic:   false,
+	}); err != nil {
+		t.Fatalf("save result: %v", err)
+	}
+	_ = store.UpdateStatus(ctx, created.ID, domain.ExecutionCompleted, "", "", "")
+
+	// Results with classification filter + pagination
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/"+created.ID+"/results?classification=significant_increase&limit=1&offset=0", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("results expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resBody map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &resBody)
+	pag, _ := resBody["pagination"].(map[string]any)
+	if pag["filtered_total"].(float64) != 1 || pag["returned"].(float64) != 1 {
+		t.Fatalf("unexpected pagination: %#v", pag)
+	}
+
+	// Summary
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/executions/"+created.ID+"/summary", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("summary expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Cell (no time series present)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/executions/"+created.ID+"/cells/c2", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("cell expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var cellBody map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &cellBody)
+	if v, ok := cellBody["time_series_available"].(bool); !ok || v {
+		t.Fatalf("expected time_series_available false, got %#v", cellBody["time_series_available"])
+	}
+
+	// Report
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/executions/"+created.ID+"/report", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("report expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 }

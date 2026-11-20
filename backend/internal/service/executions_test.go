@@ -97,3 +97,39 @@ func TestExecutionRefresh_CompletedNotFabricated(t *testing.T) {
 	}
 	_ = fmt.Sprint(ex.Status)
 }
+
+func TestExecutionRefresh_IngestsVerifiedResultsAndCompletes(t *testing.T) {
+	store := repository.NewMemoryExecutionStore()
+	created, _ := store.Create(context.Background(), domain.InvestigationExecution{InvestigationID: "INV-001", Status: domain.ExecutionQueued}, &domain.Job{JobType: "analysis", Status: domain.ExecutionQueued}, map[string]any{})
+	invSvc := NewInvestigationService(repository.NewInvestigationRepository(nil))
+	results := map[string]any{
+		"status": "completed",
+		"cells":  []any{map[string]any{"cell_id": "r0c0", "classification": "no_significant_trend"}},
+		"run_metadata": map[string]any{
+			"dataset":  map[string]any{"short_name": "GPM_3IMERGM", "version": "07", "retrieved_at": "2026-11-20T00:00:00Z"},
+			"bounds":   map[string]any{"min_lon": 33.9, "min_lat": -4.7, "max_lon": 41.9, "max_lat": 5.5},
+			"period":   map[string]any{"start": "2001-01-01", "end": "2020-12-31"},
+			"methods":  map[string]any{"trend_test": "mann_kendall_hamed_rao"},
+			"engine_version": "0.1.0-draft",
+		},
+		"synthetic": false,
+	}
+	execSvc := NewExecutionService(invSvc, store, fakeEngine{status: "completed", results: results})
+	ex, ok, err := execSvc.Refresh(context.Background(), created.ID)
+	if err != nil || !ok {
+		t.Fatalf("err=%v ok=%v", err, ok)
+	}
+	if ex.Status != domain.ExecutionCompleted {
+		t.Fatalf("expected completed after verified ingestion, got %s", ex.Status)
+	}
+	res, ok, _ := store.GetResult(context.Background(), created.ID)
+	if !ok {
+		t.Fatalf("expected stored result")
+	}
+	if res.Synthetic {
+		t.Fatalf("result must not be synthetic")
+	}
+	if res.Provenance == nil || res.Provenance["synthetic"] != false {
+		t.Fatalf("expected provenance synthetic=false, got %#v", res.Provenance)
+	}
+}
