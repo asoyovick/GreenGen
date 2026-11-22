@@ -240,3 +240,83 @@ def test_trend_handles_ties_and_missing_values():
     # ties/missing must not be treated as zero; result should indicate non-decreasing/increasing tendency
     assert tr.direction in {"increasing", "no_trend"}
 
+
+
+def test_seasonal_aggregation_and_trend_detection():
+    """Seasonal series should be built per configured season; incomplete seasons excluded."""
+    # 20 years monthly, strong increasing MAM signal, stable OND
+    rng = np.random.default_rng(11)
+    n_years = 20
+    periods = n_years * 12
+    t = pd.date_range("2001-01-01", periods=periods, freq="MS")
+    vals = np.zeros(periods, dtype=float)
+    for i, ts in enumerate(t):
+        y = ts.year - 2001
+        m = ts.month
+        if m in (3, 4, 5):  # MAM increasing
+            vals[i] = 50 + 1.5 * y + rng.normal(0, 1.0)
+        elif m in (10, 11, 12):  # OND stable/noise
+            vals[i] = 40 + rng.normal(0, 2.0)
+        else:
+            vals[i] = 20 + rng.normal(0, 1.0)
+    da = xr.DataArray(
+        vals.reshape(periods, 1, 1),
+        coords={"time": t, "lat": [0.0], "lon": [36.8]},
+        dims=("time", "lat", "lon"),
+        name="precipitation",
+        attrs={"units": "mm/month"},
+    )
+    res = analyze_grid(
+        da,
+        investigation_id="INV-001",
+        config={
+            "min_months": 9,
+            "min_years": 10,
+            "alpha": 0.05,
+            "aggregation": "seasonal",
+            "seasons": {"MAM": [3, 4, 5], "OND": [10, 11, 12]},
+            "min_months_per_season": 2,
+        },
+    )
+    cell = res["cells"][0]
+    assert "seasonal_trends" in cell
+    mam = cell["seasonal_trends"]["MAM"]
+    ond = cell["seasonal_trends"]["OND"]
+    assert mam["classification"] == "significant_increase"
+    assert mam["trend_direction"] == "increasing"
+    assert mam["sens_slope"]["value"] > 0
+    assert ond["classification"] in {"no_significant_trend", "inconclusive"}
+    assert ond["classification"] != "significant_increase"
+    assert res["run_metadata"]["parameters"]["aggregation_mode"] == "seasonal"
+    assert res["run_metadata"]["parameters"]["seasons"]["MAM"] == [3, 4, 5]
+
+
+def test_seasonal_incomplete_season_flagged_as_insufficient():
+    n_years = 12
+    periods = n_years * 12
+    t = pd.date_range("2001-01-01", periods=periods, freq="MS")
+    vals = np.full((periods, 1, 1), 30.0, dtype=float)
+    # Make MAM missing in most years so season has < min_years valid
+    for i, ts in enumerate(t):
+        if ts.month in (3, 4, 5) and ts.year >= 2004:
+            vals[i, 0, 0] = np.nan
+    da = xr.DataArray(
+        vals,
+        coords={"time": t, "lat": [0.0], "lon": [36.8]},
+        dims=("time", "lat", "lon"),
+        name="precipitation",
+        attrs={"units": "mm/month"},
+    )
+    res = analyze_grid(
+        da,
+        config={
+            "aggregation": "seasonal",
+            "seasons": {"MAM": [3, 4, 5]},
+            "min_months_per_season": 2,
+            "min_years": 10,
+        },
+    )
+    mam = res["cells"][0]["seasonal_trends"]["MAM"]
+    assert mam["classification"] == "insufficient_data"
+    assert mam["sens_slope"] is None
+    assert mam["p_value"] is None

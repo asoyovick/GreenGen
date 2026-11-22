@@ -24,7 +24,7 @@ Implemented in `scientific_engine/aggregation.py` and used by `scientific_engine
 2. **Monthly climatology and anomalies:** For each calendar month `m`, compute climatology `c(m) = mean_t(x | month(t)=m)` over valid observations in the analysis period (or agreed baseline, if specified). Monthly anomaly `a(t) = x(t) - c(month(t))`.
 3. **Annual aggregation (implemented):** Annual mean anomaly `A(y) = mean_t(a(t) | year(t)=y)` computed only when the year has at least `min_months` valid monthly anomaly values (default `9`). Years not meeting this threshold are excluded (gap), not filled with zero.
 4. **Completeness (implemented):** Track valid monthly/annual counts per cell (`n_observations`, `n_years`, `completeness`) for eligibility and reporting.
-5. **Seasonal aggregation (planned, not yet implemented in current engine):** Seasonal means/totals by defined season month sets, incomplete-season handling, and seasonal trend variants are documented as future/issue #035 work. The current MVP implementation performs annual anomaly trend analysis.
+5. **Seasonal aggregation (implemented, configurable):** Seasonal means of monthly anomalies are computed per configured season month sets. Incomplete seasons are excluded when valid-month thresholds are not met (never treated as zero). Default Kenya seasons are documented as `MAM` (Mar-May, long rains), `JJAS` (Jun-Sep), `OND` (Oct-Dec, short rains), and `JF` (Jan-Feb), with rationale based on Kenya's bimodal rainfall regime; season definitions are configurable in analysis config and recorded in run metadata. Current implementation computes per-season trend statistics (Mann-Kendall Hamed-Rao + Theil-Sen + classification) across years for each season.
 
 **Handling rules:** time coordinates must be monotonic and correctly parsed; units preserved/converted explicitly; incomplete periods excluded; missing observations remain missing.
 
@@ -94,7 +94,7 @@ Statistical significance, trend magnitude (Sen's slope with uncertainty), and cl
 
 ### Limitations
 - **Methodological:** monotonic-trend framework (Mann–Kendall/Sen’s slope) may miss nonlinear, step-change, or regime-shift behavior.
-- **Seasonality:** seasonal precipitation aggregation/trend analysis is not yet implemented in the current engine (MVP annual analysis only; #035 pending).
+- **Seasonality:** seasonal aggregation and per-season trend analysis are implemented with configurable season definitions. Default Kenya seasons (MAM/JJAS/OND/JF) are documented; alternative season definitions must be recorded in run metadata. Seasonal significance is currently evaluated per season (p-value threshold) and should be interpreted alongside annual/FDR results and documented assumptions.
 - **Data quality/coverage:** missing observations, quality flags, sensor/dataset changes, and subsetting choices affect results; incomplete periods/years are excluded per thresholds.
 - **Record length:** `< min_years` (default 10) is insufficient for trend assessment; `< ok_years` (default 15) is flagged low confidence.
 - **Spatial dependence and scale:** grid-level FDR does not eliminate spatial autocorrelation effects; regional conclusions require area-appropriate aggregation/interpretation. Native grid and bounds determine representativeness.

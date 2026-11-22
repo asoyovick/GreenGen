@@ -3,6 +3,7 @@ import LayerLegend from "./LayerLegend.jsx";
 import LayerSwitcher from "./LayerSwitcher.jsx";
 import ReportPanel from "./ReportPanel.jsx";
 import SearchControl from "./SearchControl.jsx";
+import ExecutionPanel from "./ExecutionPanel.jsx";
 import WorldMap from "./WorldMap.jsx";
 import { api } from "../api.js";
 import { normalizeLon } from "../lib/coords.js";
@@ -237,6 +238,7 @@ export default function Explorer({ health, layers }) {
           timeseriesError={timeseriesState.error}
           layerId={selectedLayerId}
         />
+        <ExecutionPanel />
       </aside>
     </div>
   );
