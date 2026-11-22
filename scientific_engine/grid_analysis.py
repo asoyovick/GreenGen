@@ -15,7 +15,7 @@ import numpy as np
 import xarray as xr
 
 from . import __version__
-from .aggregation import annual_mean_anomalies
+from .aggregation import annual_mean_anomalies, seasonal_mean_anomalies, KENYA_SEASONS
 from .reliability import classify_cell, fdr_significance_mask, low_confidence_flag
 from .trend import compute_trend
 
@@ -91,6 +91,9 @@ def analyze_grid(
     alpha = float(cfg.get("alpha", 0.05))
     alpha_ci = float(cfg.get("alpha_ci", 0.95))
     min_completeness = float(cfg.get("min_completeness", 0.0))
+    aggregation_mode = str(cfg.get("aggregation", "annual")).lower()
+    seasons_cfg = cfg.get("seasons")
+    min_months_per_season = cfg.get("min_months_per_season")
 
     if variable_name is None:
         variable_name = str(da.name or "precipitation")
@@ -109,6 +112,84 @@ def analyze_grid(
     # ensure lat/lon order for indexing
     annual = annual.transpose("year", "lat", "lon")
     n_years_total = int(annual.sizes["year"])
+
+    seasonal_results_by_idx: dict[int, dict[str, Any]] = {}
+    seasonal_meta: dict[str, Any] | None = None
+    if aggregation_mode == "seasonal":
+        seasonal = seasonal_mean_anomalies(
+            da,
+            seasons=seasons_cfg,
+            min_months_per_season=min_months_per_season,
+            variable=variable_name,
+        )
+        seasonal = seasonal.transpose("year", "season", "lat", "lon")
+        s_years = np.asarray(seasonal["year"].values)
+        s_names = [str(s) for s in np.asarray(seasonal["season"].values).tolist()]
+        s_vals = np.asarray(seasonal.values, dtype=float)  # (year, season, lat, lon)
+        season_defs = seasonal.attrs.get("season_definitions", seasons_cfg or KENYA_SEASONS)
+        seasonal_meta = {
+            "aggregation": "seasonal_mean_of_monthly_anomalies",
+            "seasons": season_defs,
+            "min_months_per_season": min_months_per_season,
+        }
+        # Precompute per-season trends per cell
+        # index by flat cell idx in same order as annual loop
+        idx = 0
+        for i in range(seasonal.sizes["lat"]):
+            for j in range(seasonal.sizes["lon"]):
+                cell_seasons: dict[str, Any] = {}
+                for si, sname in enumerate(s_names):
+                    series = s_vals[:, si, i, j]
+                    tr = compute_trend(
+                        s_years,
+                        series,
+                        min_years=min_years,
+                        slope_units=(f"{units}/year" if units else "per year"),
+                        alpha_ci=alpha_ci,
+                    )
+                    n_obs = int(np.isfinite(series).sum())
+                    completeness = (n_obs / int(seasonal.sizes["year"])) if seasonal.sizes["year"] > 0 else 0.0
+                    flags = list(tr.flags)
+                    if low_confidence_flag(tr.n_years, ok_years=ok_years) and tr.sufficient:
+                        flags.append("low_confidence")
+                    # per-season significance without FDR across all cells/seasons for simplicity; mark p-value
+                    significant = bool(tr.p_value is not None and tr.p_value < alpha) if tr.sufficient else False
+                    classification = classify_cell(
+                        sufficient=tr.sufficient,
+                        fdr_significant=significant,
+                        direction=tr.direction,
+                        flags=flags,
+                        completeness=completeness,
+                        min_completeness=min_completeness,
+                    )
+                    if not tr.sufficient:
+                        significant = False
+                    cell_seasons[sname] = {
+                        "season": sname,
+                        "months": season_defs.get(sname),
+                        "n_years": int(tr.n_years),
+                        "completeness": float(round(completeness, 6)),
+                        "trend_direction": tr.direction if tr.sufficient else None,
+                        "sens_slope": {
+                            "value": tr.slope_per_year,
+                            "units": tr.slope_units,
+                            "ci_lower": tr.ci_lower,
+                            "ci_upper": tr.ci_upper,
+                            "confidence_level": alpha_ci,
+                        } if tr.sufficient and tr.slope_per_year is not None else None,
+                        "mann_kendall": {
+                            "p_value": tr.p_value,
+                            "tau": tr.mk_tau,
+                            "statistic": tr.mk_statistic,
+                            "method": "mann_kendall_hamed_rao",
+                        } if tr.sufficient and tr.p_value is not None else None,
+                        "p_value": tr.p_value if tr.sufficient else None,
+                        "significant": significant,
+                        "classification": classification,
+                        "flags": sorted(set(flags)),
+                    }
+                seasonal_results_by_idx[idx] = cell_seasons
+                idx += 1
 
     lats = np.asarray(annual["lat"].values)
     lons = np.asarray(annual["lon"].values)
@@ -181,6 +262,8 @@ def analyze_grid(
             "classification": classification,
             "flags": sorted(set(flags)),
         }
+        if seasonal_results_by_idx:
+            cell["seasonal_trends"] = seasonal_results_by_idx.get(idx, {})
         cells.append(cell)
 
     run_metadata = {
@@ -191,6 +274,7 @@ def analyze_grid(
         "units": units,
         "methods": {
             "aggregation": "monthly_climatology_anomaly_then_annual_mean",
+            "seasonal_aggregation": "seasonal_mean_of_monthly_anomalies" if aggregation_mode == "seasonal" else None,
             "trend_test": "mann_kendall_hamed_rao",
             "slope": "theil_sen",
             "multiple_testing": "benjamini_hochberg_fdr",
@@ -202,6 +286,9 @@ def analyze_grid(
             "alpha": alpha,
             "alpha_ci": alpha_ci,
             "min_completeness": min_completeness,
+            "aggregation_mode": aggregation_mode,
+            "seasons": (seasonal_meta or {}).get("seasons"),
+            "min_months_per_season": min_months_per_season,
         },
         "dataset": dataset_meta or {},
         "bounds": bounds,
