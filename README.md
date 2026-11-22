@@ -652,6 +652,22 @@ docs: update scientific methodology
 
 ## 17. References
 
+### Project documentation
+
+- [Product Requirements](docs/PRODUCT_REQUIREMENTS.md)
+- [Investigation Catalogue](docs/INVESTIGATION_CATALOGUE.md)
+- [System Architecture](docs/SYSTEM_ARCHITECTURE.md)
+- [API Contracts](docs/API_CONTRACTS.md)
+- [Data Sources and Observation Handoff](docs/DATA_SOURCES.md)
+- [Scientific Methodology](docs/SCIENTIFIC_METHODOLOGY.md)
+- [Testing Strategy](docs/TESTING_STRATEGY.md)
+- [Reproducibility Procedures](docs/REPRODUCIBILITY.md)
+- [Scientific Validation Report](docs/SCIENTIFIC_VALIDATION_REPORT.md)
+- [Quality Assessment and Known Limitations](docs/QUALITY_ASSESSMENT.md)
+- [Demo Narrative and Challenge Alignment](docs/DEMO_NARRATIVE.md)
+- [Bug Triage](docs/BUG_TRIAGE.md)
+- [Contribution Handbook](docs/CONTRIBUTION.md)
+
 ### NASA resources
 
 - [NASA Earthdata](https://www.earthdata.nasa.gov/)
